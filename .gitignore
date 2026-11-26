@@ -1,0 +1,36 @@
+# dependencies
+node_modules/
+
+# Capacitor / Xcode build outputs
+ios/App/build/
+ios/App/DerivedData/
+build/
+*.xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# cap sync output (generated from www/ at build time, never committed)
+ios/App/App/public/
+
+# Binary www/ assets: NOT in the repo (GitHub connector pushes text only).
+# The CI workflow downloads them from https://keepass.666415.xyz/ into www/
+# before `npx cap sync ios`. Keep local copies for local builds only.
+www/argon2.wasm
+www/apple-touch-icon.png
+www/icon-192.png
+www/icon-512.png
+www/favicon.png
+
+# Generated AppIcon image (built by CI with sips from icon-512.png)
+ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png
+
+# macOS
+.DS_Store
+
+# npm / node
+npm-debug.log*
+
+# env / secrets (never commit certificates or credentials)
+*.p12
+*.mobileprovision
+*.cer
+.env
