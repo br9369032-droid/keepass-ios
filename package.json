@@ -1,0 +1,23 @@
+{
+  "name": "keepass-ios",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@capacitor/cli": "8.6.3",
+    "@capacitor/core": "8.6.3",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/ios": "8.6.3",
+    "@capawesome/capacitor-file-picker": "^8.1.1",
+    "@capgo/capacitor-native-biometric": "^8.9.3"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
+  }
+}
