@@ -71,23 +71,25 @@ jobs:
 
       # NOTE: we build with -target (not -scheme) because Capacitor's generated
       # Xcode project ships without a shared .xcscheme file; -target builds the
-      # App target directly and does not need a scheme.
+      # App target directly and does not need a scheme. -derivedDataPath cannot
+      # be used with -target (xcodebuild requires -scheme for it), so the
+      # product is placed with CONFIGURATION_BUILD_DIR instead.
       - name: Build App.app (unsigned, Release, real device)
         run: |
           xcodebuild -project ios/App/App.xcodeproj \
             -target App \
             -configuration Release \
             -sdk iphoneos \
-            -derivedDataPath build/derivedData \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
+            CONFIGURATION_BUILD_DIR="$PWD/build/Release-iphoneos" \
             build
 
       - name: Package unsigned IPA
         run: |
           mkdir -p build/Payload
-          cp -r build/derivedData/Build/Products/Release-iphoneos/App.app build/Payload/
+          cp -r build/Release-iphoneos/App.app build/Payload/
           cd build && zip -r KeePass.ipa Payload
           ls -lh KeePass.ipa
 
