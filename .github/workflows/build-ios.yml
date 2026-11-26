@@ -1,0 +1,99 @@
+# Build an UNSIGNED iOS IPA for the KeePass web app (Capacitor wrapper).
+#
+# The IPA is built on GitHub's free macOS runners — no Mac needed.
+# It is built WITHOUT code signing (CODE_SIGNING_ALLOWED=NO), so it comes out
+# unsigned. Before installing it on an iPhone, re-sign it with your own
+# certificate using 全能签 / ESign / 轻松签 (import the IPA, pick your
+# certificate, sign, install). A free Apple ID certificate lasts 7 days;
+# a paid Apple Developer certificate lasts 1 year.
+#
+# Binary assets: this repo contains TEXT files only (the GitHub connector
+# cannot push binary). The binary www/ assets (argon2.wasm + the 4 PNG
+# icons) are downloaded from the live site at build time, and the AppIcon
+# is generated from icon-512.png with macOS `sips`. The Splash imageset
+# was removed (no splash plugin is used), so nothing else binary is needed.
+#
+# Triggers: push to main, or manual "Run workflow" in the Actions tab.
+name: Build iOS IPA (unsigned)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-ipa:
+    runs-on: macos-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The repo has no binary files. Download the binary www/ assets from
+      # the live site (the same files deployed to Cloudflare Pages).
+      # curl --fail makes the build fail if any download fails (404 etc.).
+      - name: Download binary www/ assets
+        run: |
+          set -e
+          for f in argon2.wasm apple-touch-icon.png icon-192.png icon-512.png favicon.png; do
+            echo "downloading $f ..."
+            curl --fail --silent --show-error -o "www/$f" "https://keepass.666415.xyz/$f"
+          done
+          ls -lh www/
+          # sanity: wasm must start with the wasm magic bytes, PNGs with the PNG signature
+          file www/argon2.wasm www/apple-touch-icon.png www/icon-192.png www/icon-512.png www/favicon.png
+
+      # AppIcon.appiconset/Contents.json (text, in the repo) wants a
+      # 1024x1024 AppIcon-512@2x.png. Generate it from the downloaded
+      # icon-512.png (512x512) with macOS sips (built-in, no install).
+      - name: Generate AppIcon (1024x1024)
+        run: |
+          set -e
+          sips -z 1024 1024 www/icon-512.png \
+            --out ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png
+          ls -lh ios/App/App/Assets.xcassets/AppIcon.appiconset/
+
+      - name: Sync Capacitor iOS project
+        run: npx cap sync ios
+
+      # Capacitor 8 uses Swift Package Manager by default, so there is no
+      # Podfile / CocoaPods step. If a Podfile is ever added, uncomment:
+      # - name: Install CocoaPods dependencies
+      #   run: cd ios/App && pod install
+
+      # NOTE: we build with -target (not -scheme) because Capacitor's generated
+      # Xcode project ships without a shared .xcscheme file; -target builds the
+      # App target directly and does not need a scheme.
+      - name: Build App.app (unsigned, Release, real device)
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj \
+            -target App \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build/derivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p build/Payload
+          cp -r build/derivedData/Build/Products/Release-iphoneos/App.app build/Payload/
+          cd build && zip -r KeePass.ipa Payload
+          ls -lh KeePass.ipa
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KeePass-ipa
+          path: build/KeePass.ipa
+          if-no-files-found: error
