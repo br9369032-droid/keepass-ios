@@ -306,7 +306,7 @@ input[type=range]{width:100%;accent-color:var(--accent);min-height:36px}
 .set-row:last-child{border:none}
 .set-row .meta{flex:1;min-width:0}
 .set-row .meta b{display:block;font-size:15px;font-weight:600}
-.set-row .meta span{font-size:13px;color:var(--muted);display:block;font-weight:400}
+.set-row .meta span{font-size:13px;color:var(--muted);display:block;font-weight:400;overflow-wrap:anywhere;word-break:break-all}
 .set-row select{padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--bg);min-height:44px}
 
 /* bottom nav (mobile) */
@@ -496,7 +496,8 @@ body.batch-mode .vault-layout{grid-template-columns:1fr}
 
     <div class="panel hidden" id="paneDav">
       <p style="margin:2px 0 10px;font-size:14.5px"><strong>直接读取坚果云里的 .kdbx</strong>，不用先下载到本地。文件从坚果云拉下来后，只在你这台设备的内存里解密；改完在「设置」里点「保存回坚果云」，会直接写回同一个文件。</p>
-      <ol class="dav-steps">
+      <button class="btn btn-block hidden" id="btnFaceIdDav" type="button" style="min-height:52px;font-size:15px;margin-bottom:10px">🔒 使用面容 ID 解锁</button>
+      <ol class="dav-steps" id="davSteps">
         <li>先把 .kdbx 上传到坚果云（任意文件夹）</li>
         <li>打开坚果云客户端（电脑或手机 App）→ 右上角头像 → <b>账户信息 → 安全选项 → 第三方应用管理 → 添加应用</b>，生成一个<b>应用密码</b>（不是登录密码）。注意：坚果云网页版现在已经没有第三方应用管理了，只能在客户端里生成</li>
         <li>下面填文件完整地址、坚果云账号和刚生成的应用密码</li>
@@ -514,7 +515,6 @@ body.batch-mode .vault-layout{grid-template-columns:1fr}
       <label class="check-row"><input type="checkbox" id="davRemember" checked> 记住坚果云连接（只记文件地址和账号）</label>
       <label class="check-row"><input type="checkbox" id="davRememberApp"> 记住应用密码 <span style="color:var(--danger);font-weight:400">（存在这台设备的浏览器本地，别人拿到设备能看到，不勾就不存）</span></label>
       <button class="btn btn-primary btn-block" id="btnDavOpen" style="min-height:54px;font-size:16px">从坚果云打开</button>
-      <button class="btn btn-block hidden" id="btnFaceIdDav" type="button" style="min-height:52px;font-size:15px;margin-top:10px">🔒 使用面容 ID 解锁</button>
       <div class="error" id="davError"></div>
       <div class="note">勾了“记住坚果云连接”，下次打开页面会自动填好文件地址和账号，只需填应用密码和主密码。主密码永远不存，锁定或关页面就清掉。坚果云服务器上存的始终是加密后的文件，它看不到你的密码。</div>
       <div class="note warnbox">别在两台设备上同时改：打开后如果另一台设备已经改过并保存，保存回坚果云前会先提醒你，避免互相覆盖；真冲突了，用坚果云的「历史版本」找回。</div>
@@ -591,7 +591,7 @@ body.batch-mode .vault-layout{grid-template-columns:1fr}
     <div class="search-row" id="searchRow">
       <div class="search-bar">
         <select id="searchScope" class="search-scope" aria-label="搜索范围"></select>
-        <div class="search-box"><span class="s-ico" aria-hidden="true">🔍</span><input id="searchInput" type="search" placeholder="搜标题、账号、手机号、邮箱、备注…" autocomplete="off"><button class="s-clear" id="searchClear" aria-label="清空搜索">✕</button></div>
+        <div class="search-box"><span class="s-ico" aria-hidden="true">🔍</span><input id="searchInput" type="search" placeholder="搜标题、账号等" autocomplete="off"><button class="s-clear" id="searchClear" aria-label="清空搜索">✕</button></div>
         <button class="btn btn-primary" id="btnSearch" type="button">搜索</button>
       </div>
     </div>
@@ -724,7 +724,7 @@ body.batch-mode .vault-layout{grid-template-columns:1fr}
     <div class="big-card">
       <h3>关于这个库</h3>
       <p class="sub" style="margin-bottom:0">标准 KeePass .kdbx 格式，可继续用 KeePassXC（Windows）、Strongbox / KeePassium（iOS）打开。收藏会以标签形式写进库文件，换客户端也不会丢。</p>
-      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：safearea-20261126</p>
+      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：appfix-20261126</p>
     </div>
   </section>
 
@@ -1358,6 +1358,8 @@ function loadDavSaved(){ return loadLS(DAV_KEY,null); }
 function fillDavSaved(){
   var d=loadDavSaved();
   var btn=$('btnDavReconnect'); if(btn) btn.classList.toggle('hidden',!d);
+  // 已保存过连接：把三步说明藏起来（用户已经会了），解锁按钮往上提，不用往下翻
+  var steps=$('davSteps'); if(steps) steps.style.display=d?'none':'';
   if(!d) return;
   if($('davUrl')) $('davUrl').value=d.url||'https://dav.jianguoyun.com/dav/';
   if($('davUser')) $('davUser').value=d.user||'';
@@ -1458,6 +1460,30 @@ function findContactUsage(v){
   });
   return used;
 }
+/* 编辑常用手机号/邮箱：点 ✎ 改成输入框，保存时校验；如果旧值正被账号用着，
+   顺手把那些账号里的旧值也改成新值（只改非密码字段），保持一致，并标未保存。 */
+function applyContactEdit(oldV,newV,kind){
+  newV=(newV||'').trim();
+  if(!newV){ toast('不能改成空的'); return false; }
+  if(newV===oldV) return true;
+  if(contacts[kind].indexOf(newV)>-1){ toast('这个'+(kind==='phones'?'手机号':'邮箱')+'已经在常用里了'); return false; }
+  var updated=0;
+  allEntries().forEach(function(x){
+    var changed=false;
+    entryFieldNames(x.entry).forEach(function(n){
+      if(n==='Title'||n==='Password'||n==='_favorite') return;
+      if(isPasswordField(n)) return;
+      if(fieldText(x.entry,n)===oldV){ setField(x.entry,n,newV,false); changed=true; }
+    });
+    if(changed) updated++;
+  });
+  contacts[kind]=contacts[kind].map(function(x){ return x===oldV?newV:x; });
+  saveLS(CONTACT_KEY,contacts); syncTplContactsToDb();
+  if(updated>0){ markDirty(); toast('已改成 '+newV+'，'+updated+' 个账号里的旧值也一起改了，记得点保存'); }
+  else toast('已改成 '+newV);
+  renderContacts();
+  return true;
+}
 function renderContacts(){
   var pl=$('phoneList'), el=$('emailList'); if(!pl||!el) return;
   pl.innerHTML=''; el.innerHTML='';
@@ -1478,6 +1504,27 @@ function renderContacts(){
         contacts[kind]=contacts[kind].filter(function(x){return x!==v}); saveLS(CONTACT_KEY,contacts); syncTplContactsToDb(); renderContacts();
       });
     };
+    var eb=document.createElement('button'); eb.className='x-btn'; eb.textContent='✎'; eb.title='编辑'; eb.setAttribute('aria-label','编辑 '+v);
+    eb.onclick=function(){
+      // 进入编辑态：值变成输入框，✎ 变成 ✓ 保存，✕ 变成取消
+      meta.innerHTML='';
+      var inp=document.createElement('input');
+      inp.type=(kind==='phones'?'tel':'email');
+      inp.value=v; inp.style.cssText='width:100%;padding:8px 10px;font-size:14.5px;font-family:var(--mono)';
+      meta.appendChild(inp); inp.focus(); inp.select();
+      eb.textContent='✓'; eb.title='保存'; eb.setAttribute('aria-label','保存');
+      b.textContent='✕'; b.title='取消'; b.setAttribute('aria-label','取消编辑');
+      eb.onclick=function(){
+        if(applyContactEdit(v,inp.value,kind)){ /* renderContacts 已重绘 */ }
+        else { inp.focus(); }
+      };
+      b.onclick=function(){ renderContacts(); };
+      inp.addEventListener('keydown',function(e){
+        if(e.key==='Enter'){ e.preventDefault(); eb.onclick(); }
+        if(e.key==='Escape'){ renderContacts(); }
+      });
+    };
+    div.appendChild(eb);
     div.appendChild(b); return div;
   }
   contacts.phones.forEach(function(v){ pl.appendChild(row(v,'phones')); });
@@ -2511,6 +2558,17 @@ function exportBindingsXlsx(){
     {name:'xl/worksheets/sheet1.xml', data:sheetXml},
     {name:'xl/styles.xml', data:stylesXml}
   ]);
+  // 原生 App：调系统分享（存到“文件”/隔空投送），不走浏览器下载框；分享失败再回落到下载
+  if(getEnv()==='native'){
+    shareFileNative('绑定清单.xlsx', zip).then(function(ok){
+      if(ok) toast('已分享绑定清单（'+rows.length+' 条）');
+      else downloadXlsxBlob(zip, rows);
+    });
+    return;
+  }
+  downloadXlsxBlob(zip, rows);
+}
+function downloadXlsxBlob(zip, rows){
   var blob=new Blob([zip],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download='绑定清单.xlsx';
@@ -2967,6 +3025,14 @@ function isMobileBrowser(){
   if(/iPhone|iPad|iPod|Android/i.test(ua)) return true;
   return navigator.maxTouchPoints>0 && window.innerWidth<900;
 }
+/* 环境三分：原生 App / 手机浏览器 / 电脑浏览器。
+   导出、保存、解锁这些地方的行为按环境分开，别再把“手机浏览器”和“电脑浏览器”
+   混成一个“网页版”，也别让原生 App 走浏览器的下载框。 */
+function getEnv(){
+  if(isNativeApp()) return 'native';
+  if(isMobileBrowser()) return 'mobile-web';
+  return 'desktop-web';
+}
 /* 手机上：浏览器下载框是原生的、会挡住页面，所以用户下一次点页面，就说明下载框已经关掉了。
    那时再把未保存标记清掉、提示一句「已下载」，不用再点「已保存」确认。 */
 var dirtyClearArmed=false;
@@ -3022,6 +3088,17 @@ function doSaveNative(btn){
   }).catch(function(){ return false; });
 }
 
+/* 原生 App 里导出文件：先写到缓存目录，再调系统分享（存到“文件”、隔空投送、发给别人都行），
+   不走浏览器的下载框。Share 插件没装或分享失败时返回 false，调用方再回落到浏览器下载。 */
+function shareFileNative(filename, buf){
+  var fs=capPlugin('Filesystem'); var sh=capPlugin('Share');
+  if(!fs||!sh) return Promise.resolve(false);
+  return fs.writeFile({path:filename, directory:'CACHE', data:arrayBufferToBase64(buf)}).then(function(res){
+    var uri=(res&&res.uri)||filename;
+    return sh.share({files:[uri]}).then(function(){ return true; });
+  }).catch(function(){ return false; });
+}
+
 /* 统一的「保存」：本地文件能直接写回原文件就直接写，否则导出下载 */
 function doSaveUnified(btn){
   if(isNativeApp()&&nativeFileUri){
@@ -3046,26 +3123,43 @@ function doSaveUnified(btn){
 function doSave(btn){
   if(!db) return;
   var old=btn.textContent; btn.textContent='正在加密…'; btn.disabled=true;
+  function restore(){ btn.textContent=old; btn.disabled=false; }
+  function afterExportOk(msg){
+    restore();
+    dirty=false; $('dirtyDot').style.display='none';
+    $('saveHint').textContent='刚刚已导出。建议存两份：一份常用位置，一份备份。';
+    toast(msg);
+  }
+  function browserDownload(buf, filename){
+    var blob=new Blob([buf],{type:'application/octet-stream'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download=filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){URL.revokeObjectURL(a.href)},2000);
+    restore();
+    if(isMobileBrowser()){
+      // 手机浏览器：先只提示去浏览器里点「下载」，不马上清标记（用户还没点下载呢）；
+      // 等用户点完下载框、回到页面点一下，再清掉未保存标记、提示「已下载」。
+      toast('请在浏览器里点「下载」');
+      armDirtyClearOnNextTap();
+    } else {
+      // 电脑浏览器：点了就直接下载，提示一下就消失
+      afterExportOk('已下载 .kdbx');
+    }
+  }
   try{ Promise.resolve(db.save()).then(function(buf){
-      var blob=new Blob([buf],{type:'application/octet-stream'});
-      var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-      a.download=($('vaultName').textContent||'keepass').replace(/[\\/:*?"<>|]/g,'_')+'.kdbx';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(function(){URL.revokeObjectURL(a.href)},2000);
-      btn.textContent=old; btn.disabled=false;
-      if(isMobileBrowser()){
-        // 手机：先只提示去浏览器里点「下载」，不马上清标记（用户还没点下载呢）；
-        // 等用户点完下载框、回到页面点一下，再清掉未保存标记、提示「已下载」。
-        toast('请在浏览器里点「下载」');
-        armDirtyClearOnNextTap();
-      } else {
-        // 电脑：点了就直接下载，提示一下就消失
-        dirty=false; $('dirtyDot').style.display='none';
-        $('saveHint').textContent='刚刚已导出。建议存两份：一份常用位置，一份备份。';
-        toast('已下载 .kdbx');
+      var filename=($('vaultName').textContent||'keepass').replace(/[\\/:*?"<>|]/g,'_')+'.kdbx';
+      // 原生 App：调系统分享（存到“文件”/隔空投送），不走浏览器下载框；分享失败再回落到下载
+      if(getEnv()==='native'){
+        shareFileNative(filename, buf).then(function(ok){
+          if(ok){ afterExportOk('已分享，请在分享菜单里选保存位置'); }
+          else { browserDownload(buf, filename); }
+        });
+        return;
       }
-    }).catch(function(e){ toast('导出失败：'+e.message); btn.textContent=old; btn.disabled=false; });
-  }catch(e){ toast('导出失败：'+e.message); btn.textContent=old; btn.disabled=false; }
+      browserDownload(buf, filename);
+    }).catch(function(e){ toast('导出失败：'+e.message); restore(); });
+  }catch(e){ toast('导出失败：'+e.message); restore(); }
 }
 /* ---------- direct save back to the local file (File System Access API, desktop Edge/Chrome only) ---------- */
 function doSaveDirect(btn){
@@ -3272,6 +3366,9 @@ var lockThrottle=0;
 
 /* ---------- init: templates / contacts / Dav remember / batch / home save ---------- */
 fillDavSaved(); renderTemplates(); renderContacts(); updateHomeSaveUI(); updateFaceIdSettings(); refreshFaceIdButtons();
+/* 打开应用时：如果以前连过坚果云（本地存着连接），直接切到坚果云那一页，
+   文件地址和账号已经填好，点面容 ID 或输主密码就能解锁，不用再往下翻找。 */
+if(loadDavSaved()){ try{ switchSeg('dav'); }catch(e){} }
 if(isNativeApp()){
   // 原生 App 里本地文件用系统文件选择器，保存直接写回原文件，不用导出
   var fh=$('fsaHint'); if(fh) fh.textContent='📱 原生 App：点上方选文件，会打开系统文件选择器（文件 App / iCloud 云盘）；改完点「保存」直接写回原文件，不用导出。';
@@ -3501,4 +3598,4 @@ window.addEventListener('orientationchange',fitRootWidth);
 <!-- deletetm-20261126 -->
 <!-- tplreq-20261126 -->
 <!-- recycle-20261126 -->
-<!-- safearea-20261126 -->
+<!-- appfix-20261126 -->
