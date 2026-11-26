@@ -91,8 +91,8 @@ a{color:var(--accent-strong)}
 .chip .n{opacity:.6;font-weight:500;margin-left:4px}
 
 /* ---------- locked / unlock ---------- */
-.unlock-wrap{max-width:520px;margin:0 auto;padding-top:34px}
-@media(min-width:900px){.unlock-wrap{padding-top:56px}}
+.unlock-wrap{max-width:520px;margin:0 auto;padding-top:calc(34px + env(safe-area-inset-top,0px))}
+@media(min-width:900px){.unlock-wrap{padding-top:calc(56px + env(safe-area-inset-top,0px))}}
 .brand-mark{width:76px;height:76px;margin:0 auto 18px;border-radius:20px;background:var(--accent);display:grid;place-items:center;box-shadow:var(--shadow-lg)}
 .brand-mark svg{width:40px;height:40px}
 .unlock-wrap h1{font-size:32px;line-height:1.25;margin:0 0 10px;text-align:center;letter-spacing:-.02em;font-weight:700}
@@ -199,7 +199,7 @@ input[type=range]{width:100%;accent-color:var(--accent);min-height:36px}
 .checks input{width:19px;height:19px;accent-color:var(--accent)}
 
 /* ---------- vault shell ---------- */
-.vault-head{position:sticky;top:0;z-index:30;background:var(--bg);padding:14px 0 10px}
+.vault-head{position:sticky;top:0;z-index:30;background:var(--bg);padding:calc(14px + env(safe-area-inset-top,0px)) 0 10px}
 .vault-title-row{display:flex;align-items:center;gap:11px}
 .vault-ava{width:46px;height:46px;border-radius:14px;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:21px;flex-shrink:0}
 .vault-title-row .vt{flex:1;min-width:0}
@@ -724,7 +724,7 @@ body.batch-mode .vault-layout{grid-template-columns:1fr}
     <div class="big-card">
       <h3>关于这个库</h3>
       <p class="sub" style="margin-bottom:0">标准 KeePass .kdbx 格式，可继续用 KeePassXC（Windows）、Strongbox / KeePassium（iOS）打开。收藏会以标签形式写进库文件，换客户端也不会丢。</p>
-      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：faceid-refresh-20261126</p>
+      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：safearea-20261126</p>
     </div>
   </section>
 
@@ -3501,4 +3501,4 @@ window.addEventListener('orientationchange',fitRootWidth);
 <!-- deletetm-20261126 -->
 <!-- tplreq-20261126 -->
 <!-- recycle-20261126 -->
-<!-- faceid-refresh-20261126 -->
+<!-- safearea-20261126 -->
