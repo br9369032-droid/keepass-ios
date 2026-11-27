@@ -111,6 +111,12 @@ a{color:var(--accent-strong)}
 .seg button.active{background:var(--surface);color:var(--text);box-shadow:0 3px 10px rgba(0,0,0,.08)}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:24px;box-shadow:var(--shadow)}
 .drop{border:1.5px dashed var(--line);border-radius:var(--r-md);padding:26px 18px;text-align:center;background:var(--bg);cursor:pointer;transition:all .15s;position:relative}
+.recent-item{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--bg);cursor:pointer;margin-bottom:8px}
+.recent-item:active{background:var(--surface2)}
+.recent-ic{font-size:18px}
+.recent-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;font-size:15px}
+.recent-kind{color:var(--muted);font-size:12.5px;white-space:nowrap}
+.recent-face{color:var(--accent);font-size:12.5px;white-space:nowrap;font-weight:600}
 .drop-remove{position:absolute;top:8px;right:8px;width:30px;height:30px;min-height:30px;border-radius:50%;border:none;background:var(--surface);color:var(--muted);font-size:17px;line-height:1;cursor:pointer;display:none;box-shadow:0 1px 4px rgba(16,24,20,.18)}
 .drop.has-file .drop-remove{display:grid;place-items:center}
 .drop.drag{border-color:var(--accent);background:var(--accent-soft)}
@@ -486,6 +492,12 @@ body.batch-mode .vault-layout{grid-template-columns:1fr}
       <button id="segCreate" onclick="switchSeg('create')">新建库</button>
     </div>
 
+    <div class="panel hidden" id="recentWrap" style="margin-top:12px">
+      <h3 style="margin:0 0 10px;font-size:15px">最近打开</h3>
+      <div id="recentList"></div>
+      <p class="hint" style="margin:8px 0 0">本地文件要重新选一次才能打开（iPhone 的规矩）；坚果云的直接填好地址，开过面容 ID 的能直接面容解锁。</p>
+    </div>
+
     <div class="panel" id="paneOpen">
       <div class="drop" id="dropZone" role="button" tabindex="0" aria-label="选择 kdbx 文件">
         <span class="big" aria-hidden="true">🗂️</span>
@@ -744,7 +756,7 @@ body.batch-mode .vault-layout{grid-template-columns:1fr}
     <div class="big-card">
       <h3>关于这个库</h3>
       <p class="sub" style="margin-bottom:0">标准 KeePass .kdbx 格式，可继续用 KeePassXC（Windows）、Strongbox / KeePassium（iOS）打开。收藏会以标签形式写进库文件，换客户端也不会丢。</p>
-      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：totp-20261127</p>
+      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：recent-20261127</p>
     </div>
   </section>
 
@@ -1338,6 +1350,74 @@ function faceIdUnlockDav(){
 $('btnFaceIdLocal').addEventListener('click',faceIdUnlockLocal);
 $('btnFaceIdDav').addEventListener('click',faceIdUnlockDav);
 $('davUrl').addEventListener('input',function(){ refreshFaceIdButtons(); });
+/* ---------- 最近打开 ---------- */
+/* 解锁页的「最近打开」：最多留 2 个以前开过的 .kdbx 文件名（本地文件、坚果云、新建的都算）。
+   只存在这台设备的浏览器本地（localStorage），不含密码、不含坚果云应用密码。
+   点一个：坚果云的直接填好地址和账号；本地文件的要重新选一次文件（iPhone 的规矩，
+   App 关掉之后上次选的文件就打不开了，得重新选）；开过面容 ID 的，选好之后能直接面容解锁。 */
+var RECENT_KEY='kp_recent_files';
+var RECENT_MAX=2;
+var pendingRecentFaceId='';
+function loadRecentFiles(){ try{ var v=JSON.parse(localStorage.getItem(RECENT_KEY)||'[]'); return Array.isArray(v)?v:[]; }catch(e){ return []; } }
+function saveRecentFiles(list){ try{ localStorage.setItem(RECENT_KEY,JSON.stringify(list.slice(0,RECENT_MAX))); }catch(e){} }
+function recordRecentFile(){
+  if(!currentFileId) return;
+  var name=$('vaultName').textContent||'密码库';
+  var kind='local', davUrl='', davUser='';
+  if(webdav&&webdav.fileUrl){ kind='dav'; davUrl=webdav.fileUrl; davUser=webdav.user||''; name=davFileName(davUrl); }
+  else if(selectedFileName){ kind='local'; name=selectedFileName; }
+  else { kind='new'; }
+  var list=loadRecentFiles().filter(function(x){ return x.fileId!==currentFileId; });
+  list.unshift({fileId:currentFileId, name:name, kind:kind, davUrl:davUrl, davUser:davUser});
+  saveRecentFiles(list);
+  renderRecentFiles();
+}
+function renderRecentFiles(){
+  var wrap=$('recentWrap'); if(!wrap) return;
+  var list=loadRecentFiles();
+  wrap.classList.toggle('hidden', !list.length);
+  var box=$('recentList'); if(!box) return;
+  box.innerHTML='';
+  list.forEach(function(item){
+    var div=document.createElement('div');
+    div.className='recent-item';
+    var kindLabel=item.kind==='dav'?'坚果云':(item.kind==='new'?'新建库':'本地文件');
+    var faceIdOn=isNativeApp()&&faceIdStoredFileId()===item.fileId;
+    div.innerHTML='<span class="recent-ic">🗂️</span><span class="recent-name"></span><span class="recent-kind"></span>'+(faceIdOn?'<span class="recent-face">面容 ID</span>':'');
+    div.querySelector('.recent-name').textContent=item.name;
+    div.querySelector('.recent-kind').textContent=kindLabel;
+    div.addEventListener('click', function(){ openRecentFile(item); });
+    box.appendChild(div);
+  });
+}
+function openRecentFile(item){
+  if(item.kind==='dav'){
+    $('davUrl').value=item.davUrl||'';
+    $('davUser').value=item.davUser||'';
+    switchSeg('dav');
+    refreshFaceIdButtons();
+    // 面容 ID 开过、应用密码也记住了，就直接弹面容 ID；否则让用户填好应用密码再点面容 ID
+    if(isNativeApp()&&faceIdStoredFileId()===item.fileId){
+      var d=loadDavSaved();
+      if(d&&d.rememberApp&&d.appPwd){ setTimeout(function(){ faceIdUnlockDav(); },300); }
+    }
+    return;
+  }
+  // 本地文件 / 新建库：重新选一次文件（iPhone 的规矩，关掉之后上次选的文件就打不开了）
+  pendingRecentFaceId=item.fileId;
+  switchSeg('open');
+  if(isNativeApp()) openNativeFilePicker();
+  else { try{ $('fileInput').click(); }catch(e){} }
+}
+/* 从「最近打开」点进来、刚重新选好文件时：如果这个文件开过面容 ID，就直接弹面容 ID；
+   没开过或选的不是那个文件，就什么都不做（用户自己输主密码）。 */
+function maybeFaceIdForRecent(){
+  if(!pendingRecentFaceId||!isNativeApp()) return;
+  var fid=pendingRecentFaceId; pendingRecentFaceId='';
+  if(!selectedFileName||fid!=='local:'+selectedFileName) return;
+  if(faceIdStoredFileId()!==fid) return;
+  setTimeout(function(){ faceIdUnlockLocal(); },300);
+}
 /* 设置页的面容 ID 开关：只在原生 App 里显示 */
 function updateFaceIdSettings(){
   var card=$('faceIdCard'); if(!card) return;
@@ -2158,7 +2238,7 @@ fi.addEventListener('change',function(){ if(fi.files[0]){ localFileHandle=null; 
 var fileReadToken=0; // 防止竞态：选了文件又马上移除时，正在读的那个 FileReader 的结果要作废
 function handleFile(f){ selectedFileName=f.name; $('fileLabel').textContent=f.name+'（'+Math.max(1,Math.round(f.size/1024))+' KB）'; drop.classList.add('has-file');
   var token=++fileReadToken;
-  var r=new FileReader(); r.onload=function(){ if(token===fileReadToken){ selectedFileBuffer=r.result; if(typeof refreshFaceIdButtons==='function') refreshFaceIdButtons(); } }; r.readAsArrayBuffer(f); }
+  var r=new FileReader(); r.onload=function(){ if(token===fileReadToken){ selectedFileBuffer=r.result; if(typeof refreshFaceIdButtons==='function') refreshFaceIdButtons(); if(typeof maybeFaceIdForRecent==='function') maybeFaceIdForRecent(); } }; r.readAsArrayBuffer(f); }
 /* 移除已选的 .kdbx 文件：内存、文件名、句柄、input、显示都清干净，恢复到没选的状态 */
 function clearSelectedFile(){
   fileReadToken++; // 正在读的 FileReader 结果作废
@@ -2436,6 +2516,7 @@ function enterVault(name){
   if(webdav&&webdav.fileUrl) currentFileId='dav:'+webdav.fileUrl;
   else if(selectedFileName) currentFileId='local:'+selectedFileName;
   else currentFileId='new:'+name;
+  if(typeof recordRecentFile==='function') recordRecentFile(); // 记进解锁页的「最近打开」（最多 2 个）
   currentGroupUuid=null; currentFilter='all'; currentTab='vault'; switchTab('vault');
   syncFilterChips();
   if(batchMode) setBatchMode(false);
@@ -2744,11 +2825,13 @@ function exportBindingsXlsx(){
     {name:'xl/worksheets/sheet1.xml', data:sheetXml},
     {name:'xl/styles.xml', data:stylesXml}
   ]);
-  // 原生 App：调系统分享（存到“文件”/隔空投送），不走浏览器下载框；分享失败再回落到下载
+  // 原生 App：调系统分享（存到“文件”/隔空投送），不走浏览器下载框；
+  // 用户点了取消就停在那，不回落到下载；插件不可用才提示
   if(getEnv()==='native'){
-    shareFileNative('绑定清单.xlsx', zip).then(function(ok){
-      if(ok) toast('已分享绑定清单（'+rows.length+' 条）');
-      else downloadXlsxBlob(zip, rows);
+    shareFileNative('绑定清单.xlsx', zip).then(function(st){
+      if(st==='ok') toast('已分享绑定清单（'+rows.length+' 条）');
+      else if(st==='cancelled') toast('已取消分享');
+      else toast('分享不可用，请检查 App 权限或重新打开');
     });
     return;
   }
@@ -3288,6 +3371,7 @@ function openNativeFilePicker(){
     $('fileLabel').textContent=f.name+'（'+Math.max(1,Math.round((f.size||buf.byteLength)/1024))+' KB）';
     $('dropZone').classList.add('has-file');
     refreshFaceIdButtons();
+    if(typeof maybeFaceIdForRecent==='function') maybeFaceIdForRecent();
   }).catch(function(e){
     if(e&&/cancel/i.test(e.message||'')) return; // 用户点了取消，什么都不做
     toast('打开文件选择器失败：'+(e&&e.message?e.message:e));
@@ -3305,14 +3389,18 @@ function doSaveNative(btn){
 }
 
 /* 原生 App 里导出文件：先写到缓存目录，再调系统分享（存到“文件”、隔空投送、发给别人都行），
-   不走浏览器的下载框。Share 插件没装或分享失败时返回 false，调用方再回落到浏览器下载。 */
+   不走浏览器的下载框。返回 'ok'（分享成功）、'cancelled'（用户点了取消）、'unavailable'（插件没装或写缓存失败）。
+   用户取消不算失败，调用方不要回落到浏览器下载——App 里不应该出现浏览器下载的字样。 */
 function shareFileNative(filename, buf){
   var fs=capPlugin('Filesystem'); var sh=capPlugin('Share');
-  if(!fs||!sh) return Promise.resolve(false);
+  if(!fs||!sh) return Promise.resolve('unavailable');
   return fs.writeFile({path:filename, directory:'CACHE', data:arrayBufferToBase64(buf)}).then(function(res){
     var uri=(res&&res.uri)||filename;
-    return sh.share({files:[uri]}).then(function(){ return true; });
-  }).catch(function(){ return false; });
+    return sh.share({files:[uri]}).then(function(){ return 'ok'; }).catch(function(e){
+      if(e&&/cancel/i.test(e.message||'')) return 'cancelled';
+      return 'unavailable';
+    });
+  }).catch(function(){ return 'unavailable'; });
 }
 
 /* 统一的「保存」：本地文件能直接写回原文件就直接写，否则导出下载 */
@@ -3327,7 +3415,9 @@ function doSaveUnified(btn){
         $('saveHint').textContent='刚刚已保存回原文件。建议定期再导出一份备份。';
         toast('已保存');
       }else{
-        toast('直接写回原文件失败，已改用导出下载');
+        // 直接写回失败（iPhone 上从文件 App 选的文件，系统只给临时访问权限）：
+        // 走系统分享，让用户在分享菜单里选「存储到文件」，找到原文件覆盖保存。不走浏览器下载。
+        toast('直接写回原文件失败，请在分享菜单里选「存储到文件」覆盖原文件');
         doSave(btn);
       }
     });
@@ -3365,11 +3455,13 @@ function doSave(btn){
   }
   try{ Promise.resolve(db.save()).then(function(buf){
       var filename=($('vaultName').textContent||'keepass').replace(/[\\/:*?"<>|]/g,'_')+'.kdbx';
-      // 原生 App：调系统分享（存到“文件”/隔空投送），不走浏览器下载框；分享失败再回落到下载
+      // 原生 App：调系统分享（存到“文件”/隔空投送），不走浏览器下载框；
+      // 用户点了取消就停在那（修改还在内存里），不回落到下载；插件不可用才提示，也不走下载
       if(getEnv()==='native'){
-        shareFileNative(filename, buf).then(function(ok){
-          if(ok){ afterExportOk('已分享，请在分享菜单里选保存位置'); }
-          else { browserDownload(buf, filename); }
+        shareFileNative(filename, buf).then(function(st){
+          if(st==='ok'){ afterExportOk('已分享，请在分享菜单里选保存位置'); }
+          else if(st==='cancelled'){ restore(); toast('已取消分享，修改还在内存里'); }
+          else { restore(); toast('分享不可用，请检查 App 权限或重新打开'); }
         });
         return;
       }
@@ -3426,7 +3518,7 @@ function doLock(){
   var ap=$('davAppPwd'); if(ap) ap.value=''; var mp=$('davMasterPwd'); if(mp) mp.value='';
   $('vaultView').classList.add('hidden'); $('lockedView').classList.remove('hidden');
   $('entryList').innerHTML=''; $('detailBody').innerHTML=''; $('searchInput').value='';
-  clearTimeout(lockTimer); fillDavSaved(); toast('已锁定，内存中的密码已清空'); window.scrollTo(0,0);
+  clearTimeout(lockTimer); fillDavSaved(); if(typeof renderRecentFiles==='function') renderRecentFiles(); toast('已锁定，内存中的密码已清空'); window.scrollTo(0,0);
 }
 function askLock(){
   if(dirty && !window.__lockConfirm){ toast(webdav?'有未保存回坚果云的修改，再点一次确认放弃并锁定':(localFileHandle?'有未保存回原文件的修改，再点一次确认放弃并锁定':'有未导出的修改，再点一次确认放弃并锁定')); window.__lockConfirm=true; setTimeout(function(){window.__lockConfirm=false},3000); return; }
@@ -3582,7 +3674,7 @@ var lockThrottle=0;
 ['scroll','wheel','mousemove'].forEach(function(ev){ window.addEventListener(ev,function(){ if(!db) return; var now=Date.now(); if(now-lockThrottle<5000) return; lockThrottle=now; resetLockTimer(); },{passive:true}); });
 
 /* ---------- init: templates / contacts / Dav remember / batch / home save ---------- */
-fillDavSaved(); renderTemplates(); renderContacts(); updateHomeSaveUI(); updateFaceIdSettings(); refreshFaceIdButtons();
+fillDavSaved(); renderTemplates(); renderContacts(); updateHomeSaveUI(); updateFaceIdSettings(); refreshFaceIdButtons(); renderRecentFiles();
 /* 打开应用时：如果以前连过坚果云（本地存着连接），直接切到坚果云那一页，
    文件地址和账号已经填好，点面容 ID 或输主密码就能解锁，不用再往下翻找。 */
 if(loadDavSaved()){ try{ switchSeg('dav'); }catch(e){} }
@@ -3816,3 +3908,4 @@ window.addEventListener('orientationchange',fitRootWidth);
 <!-- tplreq-20261126 -->
 <!-- recycle-20261126 -->
 <!-- totp-20261127 -->
+<!-- recent-20261127 -->
