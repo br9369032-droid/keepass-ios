@@ -280,8 +280,8 @@ body.batch-mode #vaultEntriesPage .entries-head{display:none}
 
 /* entry cards */
 .entry-list{display:grid;gap:11px}
+/* 桌面网页版条目也是单列展示（一行一条），两列看着挤。 */
 .recycle-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:1.5px solid var(--line);border-radius:var(--r-md);padding:10px 12px;margin-bottom:11px}
-@media(min-width:700px){.entry-list{grid-template-columns:1fr 1fr}}
 .entry-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow);transition:border-color .15s,transform .12s,box-shadow .15s;cursor:pointer}
 .entry-card:active{transform:scale(.985)}
 .entry-card:hover{border-color:var(--faint)}
@@ -331,6 +331,7 @@ body.batch-mode #vaultEntriesPage .entries-head{display:none}
 .auth-item:active{background:var(--accent-soft)}
 .auth-meta b{display:block;font-size:15px}
 .auth-meta span{font-size:13px;color:var(--muted)}
+.auth-meta .auth-note{display:block;font-size:12px;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
 .auth-code-row{display:flex;align-items:baseline;gap:10px;margin-top:8px}
 .auth-code{font-family:var(--mono);font-size:28px;font-weight:700;letter-spacing:2px}
 .auth-left{font-size:13px;color:var(--muted);font-weight:600}
@@ -775,7 +776,7 @@ body.batch-mode .entry-list{grid-template-columns:1fr}
     <div class="big-card">
       <h3>关于这个库</h3>
       <p class="sub" style="margin-bottom:0">标准 KeePass .kdbx 格式，可继续用 KeePassXC（Windows）、Strongbox / KeePassium（iOS）打开。收藏会以标签形式写进库文件，换客户端也不会丢。</p>
-      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：editor-20261127</p>
+      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：auth3-20261127</p>
     </div>
   </section>
 
@@ -873,7 +874,8 @@ body.batch-mode .entry-list{grid-template-columns:1fr}
     <video id="scanVideo" playsinline muted></video>
     <canvas id="scanCanvas" class="hidden"></canvas>
     <div class="error" id="scanError"></div>
-    <div class="sheet-foot"><button class="btn" onclick="stopQrScan();closeOverlay('scanOverlay')">取消</button></div>
+    <div class="sheet-foot"><button class="btn" id="btnScanAlbum" type="button">🖼 从相册选择</button><button class="btn" onclick="stopQrScan();closeOverlay('scanOverlay')">取消</button></div>
+    <input type="file" id="scanFileInput" accept="image/*" class="hidden">
   </div>
 </div>
 
@@ -886,6 +888,18 @@ body.batch-mode .entry-list{grid-template-columns:1fr}
     <div class="field"><label for="authAddLink">otpauth 链接或 base32 密钥</label><input id="authAddLink" placeholder="otpauth://totp/… 或 JBSWY3DP…" autocomplete="off" spellcheck="false"></div>
     <div class="error" id="authAddError"></div>
     <div class="sheet-foot"><button class="btn" onclick="closeOverlay('authAddOverlay')">取消</button><button class="btn btn-primary" id="btnAuthAddSave" type="button">保存</button></div>
+  </div>
+</div>
+
+<!-- AUTH EDIT: 编辑 2FA（只改标题和备注） -->
+<div class="overlay" id="authEditOverlay">
+  <div class="sheet" role="dialog" aria-modal="true" aria-label="编辑 2FA">
+    <div class="sheet-grab"></div>
+    <div class="sheet-head"><div class="tt"><b>编辑 2FA</b><span>只能改标题和备注；密钥想换的话，删了这个 2FA 重新扫码或粘贴添加。</span></div><button class="x" onclick="closeOverlay('authEditOverlay')" aria-label="关闭">✕</button></div>
+    <div class="field"><label for="authEditTitle">标题</label><input id="authEditTitle" type="text" placeholder="比如 GitHub" autocomplete="off"></div>
+    <div class="field"><label for="authEditNotes">备注</label><input id="authEditNotes" type="text" placeholder="比如：这是公司内网的验证码" autocomplete="off"></div>
+    <div class="error" id="authEditError"></div>
+    <div class="sheet-foot"><button class="btn" onclick="closeOverlay('authEditOverlay')">取消</button><button class="btn btn-primary" id="btnAuthEditSave" type="button">保存</button></div>
   </div>
 </div>
 
@@ -2171,12 +2185,15 @@ function renderAuth(){
     var en=x.entry;
     var title=fieldText(en,'Title')||'(无标题)';
     var user=fieldText(en,'UserName')||'';
+    var notes=fieldText(en,'Notes')||'';
     var div=document.createElement('div');
     div.className='auth-item';
-    div.innerHTML='<div class="auth-meta"><b></b><span></span></div><div class="auth-code-row"><span class="auth-code">••••••</span><span class="auth-left"></span><button class="auth-edit" type="button" title="编辑这个 2FA">✏️</button><button class="auth-del" type="button" title="删除这个 2FA">🗑</button></div><div class="auth-bar"><i></i></div>';
+    div.innerHTML='<div class="auth-meta"><b></b><span class="auth-user"></span><span class="auth-note"></span></div><div class="auth-code-row"><span class="auth-code">••••••</span><span class="auth-left"></span><button class="auth-edit" type="button" title="编辑这个 2FA">✏️</button><button class="auth-del" type="button" title="删除这个 2FA">🗑</button></div><div class="auth-bar"><i></i></div>';
     div.querySelector('.auth-meta b').textContent=title;
-    div.querySelector('.auth-meta span').textContent=user;
-    div.querySelector('.auth-edit').addEventListener('click', function(ev){ ev.stopPropagation(); openEntryEditor(en); });
+    div.querySelector('.auth-user').textContent=user;
+    var noteEl=div.querySelector('.auth-note');
+    if(notes) noteEl.textContent=notes; else noteEl.style.display='none';
+    div.querySelector('.auth-edit').addEventListener('click', function(ev){ ev.stopPropagation(); openAuthEdit(en); });
     div.querySelector('.auth-del').addEventListener('click', function(ev){ ev.stopPropagation(); deleteAuthEntry(en); });
     div._entry=en;
     div.addEventListener('click', function(){
@@ -2232,6 +2249,31 @@ function deleteAuthEntry(en){
     currentEntry=en; doDeleteEntry(); renderAuth();
   });
 }
+/* 编辑 2FA（验证器页的 ✏️）：只改标题和备注，其他字段都不出现、也不能改。
+   密钥想换的话，删了这个 2FA 重新扫码或粘贴添加。标题必填、不能重名（排除自己）。 */
+var authEditEntry=null;
+function openAuthEdit(en){
+  authEditEntry=en;
+  $('authEditTitle').value=fieldText(en,'Title')||'';
+  $('authEditNotes').value=fieldText(en,'Notes')||'';
+  $('authEditError').textContent='';
+  openOverlay('authEditOverlay');
+}
+$('btnAuthEditSave').addEventListener('click', function(){
+  var en=authEditEntry; if(!en) return;
+  var title=($('authEditTitle').value||'').trim();
+  var notes=($('authEditNotes').value||'').trim();
+  if(!title){ $('authEditError').textContent='标题不能为空。'; return; }
+  var dup=false;
+  allEntries().forEach(function(x){ if(x.entry!==en && fieldText(x.entry,'Title').trim().toLowerCase()===title.toLowerCase()) dup=true; });
+  if(dup){ $('authEditError').textContent='标题“'+title+'”已经存在，不能重名。换个标题再保存。'; return; }
+  setField(en,'Title',title);
+  if(notes) setField(en,'Notes',notes); else deleteField(en,'Notes');
+  markDirty();
+  renderAll(); renderAuth();
+  closeOverlay('authEditOverlay');
+  toast('已保存');
+});
 function exportTotpBackup(){
   var items=totpEntries();
   if(!items.length){ toast('还没有设置 2FA 的账号'); return; }
@@ -2324,6 +2366,47 @@ function stopQrScan(){
   if(qrScanStream){ qrScanStream.getTracks().forEach(function(t){ t.stop(); }); qrScanStream=null; }
   var video=$('scanVideo'); if(video) video.srcObject=null;
 }
+/* 相册扫码：选一张二维码图片，jsQR 解码，扫到 otpauth 链接就自动建一个条目（和相机扫码走同一个 addTotpFromUri）。
+   用离屏 canvas 解码，不动相机那块 canvas，相机可以继续跑着，解码失败还能回相机再扫。 */
+function decodeQrFromImageFile(file){
+  if(typeof jsQR==='undefined'){ $('scanError').textContent='扫码库没加载出来，请检查网络后刷新页面。'; return; }
+  var reader=new FileReader();
+  reader.onload=function(){
+    var img=new Image();
+    img.onload=function(){
+      var w=img.naturalWidth, h=img.naturalHeight;
+      if(!w||!h){ $('scanError').textContent='读这张图失败，请换一张再试。'; return; }
+      var maxDim=2000;
+      var scale=Math.min(1, maxDim/Math.max(w,h));
+      var canvas=document.createElement('canvas');
+      canvas.width=Math.max(1,Math.round(w*scale)); canvas.height=Math.max(1,Math.round(h*scale));
+      var ctx=canvas.getContext('2d');
+      ctx.drawImage(img,0,0,canvas.width,canvas.height);
+      var imgData=null;
+      try{ imgData=ctx.getImageData(0,0,canvas.width,canvas.height); }catch(e){ $('scanError').textContent='读这张图失败，请换一张再试。'; return; }
+      var code=null;
+      try{ code=jsQR(imgData.data,canvas.width,canvas.height); }catch(e){}
+      if(code&&code.data){
+        var r=addTotpFromUri(code.data.trim());
+        if(r.ok){
+          stopQrScan(); closeOverlay('scanOverlay');
+          renderAll(); renderAuth();
+          toast('已添加 2FA：'+r.title);
+          return;
+        }
+        $('scanError').textContent='这个二维码不是 2FA 的，请选网站给的 2FA 二维码图片。';
+        return;
+      }
+      $('scanError').textContent='这张图里没有找到二维码，请换一张带 2FA 二维码的图片。';
+    };
+    img.onerror=function(){ $('scanError').textContent='读这张图失败，请换一张再试。'; };
+    img.src=reader.result;
+  };
+  reader.onerror=function(){ $('scanError').textContent='读这张图失败，请换一张再试。'; };
+  reader.readAsDataURL(file);
+}
+$('btnScanAlbum').addEventListener('click', function(){ $('scanFileInput').click(); });
+$('scanFileInput').addEventListener('change', function(){ if(this.files[0]){ decodeQrFromImageFile(this.files[0]); this.value=''; } });
 $('btnAuthScan').addEventListener('click', startQrScan);
 $('btnAuthAddLink').addEventListener('click', function(){ $('authAddName').value=''; $('authAddLink').value=''; $('authAddError').textContent=''; openOverlay('authAddOverlay'); });
 $('btnAuthAddSave').addEventListener('click', function(){
@@ -4198,4 +4281,4 @@ window.addEventListener('orientationchange',fitRootWidth);
 <!-- recent-20261127 -->
 <!-- savecopy-20261127 -->
 <!-- totp2-20261127 -->
-<!-- editor-20261127 -->
+<!-- auth3-20261127 -->
