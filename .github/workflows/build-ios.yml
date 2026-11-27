@@ -1,11 +1,26 @@
 # Build an UNSIGNED iOS IPA for the KeePass web app (Capacitor wrapper).
 #
 # The IPA is built on GitHub's free macOS runners — no Mac needed.
-# It is built WITHOUT code signing (CODE_SIGNING_ALLOWED=NO), so it comes out
-# unsigned. Before installing it on an iPhone, re-sign it with your own
-# certificate using 全能签 / ESign / 轻松签 (import the IPA, pick your
-# certificate, sign, install). A free Apple ID certificate lasts 7 days;
-# a paid Apple Developer certificate lasts 1 year.
+# It is built WITHOUT a real code signature (CODE_SIGNING_ALLOWED=NO), so it
+# comes out unsigned. Before installing it on an iPhone, re-sign it with your
+# own certificate using SideStore (jk uses 7-day free self-signing) or
+# 全能签 / ESign / 轻松签 (import the IPA, pick your certificate, sign,
+# install). A free Apple ID certificate lasts 7 days; a paid Apple Developer
+# certificate lasts 1 year.
+#
+# AutoFill test (autofill-test-20261127): the IPA also contains a minimal
+# Credential Provider Extension (ios/App/CredentialProvider/, bundle id
+# xyz.666415.keepass.CredentialProvider) with the
+# com.apple.developer.authentication-services.autofill-credential-provider
+# entitlement, to test whether a free self-signed install can appear in
+# iOS Settings → General → AutoFill & Passwords. The extension does nothing
+# else (no credentials, no vault access). Because the build is unsigned, the
+# entitlements are embedded afterwards with an AD-HOC signature ("codesign
+# --sign -"): that signature is not a real certificate, it only carries the
+# entitlements inside the binaries so the re-signing tool can read and
+# preserve them. If the free provisioning profile does not allow this
+# entitlement, the extension will not appear in Settings (or the install
+# may fail) — that result itself answers the test.
 #
 # Binary assets: this repo contains TEXT files only (the GitHub connector
 # cannot push binary). The binary www/ assets (argon2.wasm + the 4 PNG
@@ -85,6 +100,24 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CONFIGURATION_BUILD_DIR="$PWD/build/Release-iphoneos" \
             build
+
+      - name: Ad-hoc sign app + extension (embed autofill entitlement)
+        run: |
+          set -e
+          APPEX="build/Release-iphoneos/App.app/PlugIns/CredentialProvider.appex"
+          APP="build/Release-iphoneos/App.app"
+          ls -R "$APP/PlugIns"
+          # Sign the nested extension first, then the containing app.
+          # Ad-hoc ("-") is not a real certificate: it only embeds the
+          # entitlements into the binaries so SideStore's re-signing can
+          # read and preserve them. The IPA still needs jk's own
+          # certificate to install.
+          codesign --force --sign - --entitlements ios/App/CredentialProvider/CredentialProvider.entitlements --timestamp=none "$APPEX"
+          codesign --force --sign - --entitlements ios/App/App/App.entitlements --timestamp=none "$APP"
+          echo "--- extension entitlements (must show autofill-credential-provider) ---"
+          codesign -d --entitlements - "$APPEX"
+          echo "--- app entitlements (must show autofill-credential-provider) ---"
+          codesign -d --entitlements - "$APP"
 
       - name: Package unsigned IPA
         run: |
