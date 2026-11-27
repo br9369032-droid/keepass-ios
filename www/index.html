@@ -756,7 +756,7 @@ body.batch-mode .vault-layout{grid-template-columns:1fr}
     <div class="big-card">
       <h3>关于这个库</h3>
       <p class="sub" style="margin-bottom:0">标准 KeePass .kdbx 格式，可继续用 KeePassXC（Windows）、Strongbox / KeePassium（iOS）打开。收藏会以标签形式写进库文件，换客户端也不会丢。</p>
-      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：recent-20261127</p>
+      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：savecopy-20261127</p>
     </div>
   </section>
 
@@ -3377,17 +3377,6 @@ function openNativeFilePicker(){
     toast('打开文件选择器失败：'+(e&&e.message?e.message:e));
   });
 }
-function doSaveNative(btn){
-  if(!db||!nativeFileUri) return Promise.resolve(false);
-  var fs=capPlugin('Filesystem'); if(!fs) return Promise.resolve(false);
-  var path=nativeFileUri;
-  try{ if(path.indexOf('file://')===0) path=decodeURIComponent(path.slice(7)); }catch(e){}
-  return Promise.resolve(db.save()).then(function(buf){
-    // Filesystem.writeFile 不传 encoding、传 base64 就是写二进制
-    return fs.writeFile({path:path,data:arrayBufferToBase64(buf)}).then(function(){ return true; });
-  }).catch(function(){ return false; });
-}
-
 /* 原生 App 里导出文件：先写到缓存目录，再调系统分享（存到“文件”、隔空投送、发给别人都行），
    不走浏览器的下载框。返回 'ok'（分享成功）、'cancelled'（用户点了取消）、'unavailable'（插件没装或写缓存失败）。
    用户取消不算失败，调用方不要回落到浏览器下载——App 里不应该出现浏览器下载的字样。 */
@@ -3405,23 +3394,11 @@ function shareFileNative(filename, buf){
 
 /* 统一的「保存」：本地文件能直接写回原文件就直接写，否则导出下载 */
 function doSaveUnified(btn){
-  if(isNativeApp()&&nativeFileUri){
-    // 原生 App：直接写回原文件，不用导出
-    var old=btn.textContent; btn.textContent='正在保存…'; btn.disabled=true;
-    doSaveNative(btn).then(function(ok){
-      btn.textContent=old; btn.disabled=false;
-      if(ok){
-        dirty=false; $('dirtyDot').style.display='none';
-        $('saveHint').textContent='刚刚已保存回原文件。建议定期再导出一份备份。';
-        toast('已保存');
-      }else{
-        // 直接写回失败（iPhone 上从文件 App 选的文件，系统只给临时访问权限）：
-        // 走系统分享，让用户在分享菜单里选「存储到文件」，找到原文件覆盖保存。不走浏览器下载。
-        toast('直接写回原文件失败，请在分享菜单里选「存储到文件」覆盖原文件');
-        doSave(btn);
-      }
-    });
-    return;
+  if(isNativeApp()){
+    // 原生 App：iPhone 上从文件 App 选的文件，系统只给临时访问权限，直接写回原文件写不回去，
+    // 所以不试写回、也不提示“写回失败”，直接走系统分享，让用户选保存位置（存成另外一份，
+    // 也能在分享菜单里找到原文件覆盖）。坚果云的库不走这里（走 saveToDav 写回服务器）。
+    return doSave(btn);
   }
   if(localFileHandle) return doSaveDirect(btn);
   return doSave(btn);
@@ -3909,3 +3886,4 @@ window.addEventListener('orientationchange',fitRootWidth);
 <!-- recycle-20261126 -->
 <!-- totp-20261127 -->
 <!-- recent-20261127 -->
+<!-- savecopy-20261127 -->
