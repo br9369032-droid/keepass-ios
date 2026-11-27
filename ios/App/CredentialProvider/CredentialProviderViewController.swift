@@ -4,6 +4,13 @@
 // 经免费证书重签安装后，能不能出现在 iOS「设置 → 通用 → 自动填充与密码」里。
 // 不提供真实凭证、不读密码库、不做数据共享（App Groups 是下一步的事）。
 // 如果设置里能看到 KeePass，再往下做真正的选密码界面。
+//
+// 注意：用的是当前（iOS 17+）的 ASCredentialProviderViewController API：
+// prepareCredentialList / prepareInterfaceToProvideCredential /
+// prepareInterfaceForExtensionConfiguration 都没有 completionHandler，
+// provideCredentialWithoutUserInteraction 接的是 any ASCredentialRequest。
+// 旧的带 completionHandler / ASPasswordCredentialIdentity 的写法在当前 SDK
+// 里已经不存在，写了会编译失败。
 
 import AuthenticationServices
 import UIKit
@@ -29,22 +36,22 @@ class CredentialProviderViewController: ASCredentialProviderViewController {
     }
 
     // 用户在登录框点钥匙图标时调用。最小测试：只证明扩展能被系统加载。
-    override func prepareCredentialList(for serviceIdentifiers: [ASCredentialServiceIdentifier], completionHandler: @escaping (Bool) -> Void) {
-        completionHandler(true)
+    override func prepareCredentialList(for serviceIdentifiers: [ASCredentialServiceIdentifier]) {
+        // 列表界面就是 viewDidLoad 里那行测试文字，不用再准备什么。
     }
 
-    // 快捷填充（不弹界面）。最小测试：直接取消。
-    override func provideCredentialWithoutUserInteraction(for credentialIdentity: ASPasswordCredentialIdentity) {
-        self.extensionContext?.cancelRequest(withError: NSError(domain: ASExtensionErrorDomain, code: ASExtensionError.userCanceled.rawValue))
+    // 快捷填充（不弹界面）。最小测试：直接取消，让系统回落到列表界面。
+    override func provideCredentialWithoutUserInteraction(for credentialRequest: any ASCredentialRequest) {
+        extensionContext.cancelRequest(withError: NSError(domain: ASExtensionErrorDomain, code: ASExtensionError.Code.userInteractionRequired.rawValue))
     }
 
     // 用户在列表里选中某条凭证时调用。最小测试：不提供。
-    override func prepareInterfaceToProvideCredential(for credentialIdentity: ASPasswordCredentialIdentity, completionHandler: @escaping (Bool) -> Void) {
-        completionHandler(false)
+    override func prepareInterfaceToProvideCredential(for credentialRequest: any ASCredentialRequest) {
+        // 界面就是 viewDidLoad 里那行测试文字，不用再准备什么。
     }
 
-    // 扩展的配置界面。最小测试：没有。
-    override func prepareInterfaceForExtensionConfiguration(completionHandler: @escaping (Bool) -> Void) {
-        completionHandler(false)
+    // 用户在设置里点开扩展的配置时调用。最小测试：直接关掉。
+    override func prepareInterfaceForExtensionConfiguration() {
+        extensionContext.completeExtensionConfigurationRequest()
     }
 }
