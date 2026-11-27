@@ -781,7 +781,7 @@ body.batch-mode .entry-list{grid-template-columns:1fr}
     <div class="big-card">
       <h3>关于这个库</h3>
       <p class="sub" style="margin-bottom:0">标准 KeePass .kdbx 格式，可继续用 KeePassXC（Windows）、Strongbox / KeePassium（iOS）打开。收藏会以标签形式写进库文件，换客户端也不会丢。</p>
-      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：contacts-20261127</p>
+      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：davnative-20261127</p>
     </div>
   </section>
 
@@ -2629,7 +2629,72 @@ function davProbeOk(){
     });
   });
 }
+/* ArrayBuffer <-> base64：原生 App 走 CapacitorHttp 传二进制要用 base64（dataType 'file'），
+   不能直接把 ArrayBuffer 塞进 fetch——原生层认不出 application/octet-stream 的非字符串体，
+   会报 CapacitorUrlRequest serializationError（error 0），保存回坚果云就失败。 */
+function arrayBufferToBase64(buf){
+  var bytes=new Uint8Array(buf), binary='', chunk=0x8000;
+  for(var i=0;i<bytes.length;i+=chunk){
+    binary+=String.fromCharCode.apply(null,bytes.subarray(i,i+chunk));
+  }
+  return btoa(binary);
+}
+function base64ToArrayBuffer(b64){
+  var binary=atob(b64), bytes=new Uint8Array(binary.length);
+  for(var i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
+  return bytes.buffer;
+}
+/* 原生 App 的坚果云写回（PUT）：直接调 CapacitorHttp.request，不走 fetch。
+   fetch 的 ArrayBuffer 体在原生层序列化失败（CapacitorUrlRequest error 0），
+   而 request() 传 base64 + dataType 'file' 是原生层专门处理二进制的路子。
+   返回包成 fetch Response 的样子（status/ok/headers.get/arrayBuffer），调用方不用改。 */
+function davFetchNative(cfg,method,body,extraHeaders){
+  var http=null;
+  try{ http=capPlugin('CapacitorHttp'); }catch(e){ http=null; }
+  if(!http||typeof http.request!=='function') return null;
+  var headers={ 'Authorization': davAuth(cfg.user,cfg.appPwd) };
+  if(extraHeaders) Object.keys(extraHeaders).forEach(function(k){headers[k]=extraHeaders[k]});
+  var opts={ url:cfg.fileUrl, method:method, headers:headers };
+  if(method==='PUT'&&body){
+    opts.data=arrayBufferToBase64(body);
+    opts.dataType='file';
+  }
+  if(method==='GET') opts.responseType='arraybuffer';
+  var req=http.request(opts);
+  var timeout=new Promise(function(_,reject){
+    setTimeout(function(){ var te=new Error('连接坚果云超时（30 秒没响应）'); te.isTimeout=true; reject(te); },30000);
+  });
+  return Promise.race([req,timeout]).then(function(res){
+    var h=res.headers||{};
+    return {
+      status:res.status,
+      ok:res.status>=200&&res.status<300,
+      headers:{ get:function(name){
+        var want=String(name).toLowerCase(), k=null;
+        Object.keys(h).forEach(function(x){ if(x.toLowerCase()===want) k=x; });
+        return k?h[k]:null;
+      }},
+      arrayBuffer:function(){
+        if(method==='GET'&&typeof res.data==='string'&&res.data) return Promise.resolve(base64ToArrayBuffer(res.data));
+        return Promise.resolve(new ArrayBuffer(0));
+      },
+      text:function(){ return Promise.resolve(typeof res.data==='string'?res.data:''); }
+    };
+  }).catch(function(e){
+    if(e&&e.isTimeout) throw e;
+    var msg=(e&&e.message)?e.message:String(e||'网络错误');
+    throw new Error(msg);
+  });
+}
 function davFetch(cfg,method,body,extraHeaders){
+  // 原生 App 写回（PUT）时：不用 fetch 传 ArrayBuffer 体——原生层序列化失败
+  // （CapacitorUrlRequest error 0），改走 CapacitorHttp.request 传 base64 + dataType 'file'。
+  // GET/HEAD 没二进制体，继续走 fetch；拿不到插件时也回落到 fetch。
+  if(isNativeApp()&&method==='PUT'&&body){
+    var native=null;
+    try{ native=davFetchNative(cfg,method,body,extraHeaders); }catch(e){ native=null; }
+    if(native) return native;
+  }
   var headers={ 'Authorization': davAuth(cfg.user,cfg.appPwd) };
   if(extraHeaders) Object.keys(extraHeaders).forEach(function(k){headers[k]=extraHeaders[k]});
   // 30 秒超时：手机网络差、代理或坚果云没响应时，fetch 会一直挂着不回不报错，
@@ -4353,3 +4418,4 @@ window.addEventListener('orientationchange',fitRootWidth);
 <!-- savecopy-20261127 -->
 <!-- totp2-20261127 -->
 <!-- contacts-20261127 -->
+<!-- davnative-20261127 -->
