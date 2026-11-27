@@ -310,13 +310,23 @@ input[type=range]{width:100%;accent-color:var(--accent);min-height:36px}
 .set-row select{padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--bg);min-height:44px}
 
 /* bottom nav (mobile) */
-.bottom-nav{position:fixed;left:0;right:0;bottom:0;width:var(--winw,100%);z-index:40;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(2,1fr);padding:5px 8px calc(5px + env(safe-area-inset-bottom))}
+.bottom-nav{position:fixed;left:0;right:0;bottom:0;width:var(--winw,100%);z-index:40;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);padding:5px 8px calc(5px + env(safe-area-inset-bottom))}
 .bottom-nav button{border:none;background:transparent;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:1px;font-size:11px;font-weight:600;color:var(--muted);min-height:46px;padding:5px 0}
 .bottom-nav button .ic{font-size:19px;line-height:1}
 .bottom-nav button.active{color:var(--accent-strong);background:var(--accent-soft)}
 @media(min-width:960px){.bottom-nav{position:fixed;left:50%;right:auto;transform:translateX(-50%);bottom:12px;border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow-lg);width:200px;padding:5px}}
 
 /* sheets */
+/* authenticator (2FA) */
+.auth-item{background:var(--surface2);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px;cursor:pointer}
+.auth-item:active{background:var(--accent-soft)}
+.auth-meta b{display:block;font-size:15px}
+.auth-meta span{font-size:13px;color:var(--muted)}
+.auth-code-row{display:flex;align-items:baseline;gap:10px;margin-top:8px}
+.auth-code{font-family:var(--mono);font-size:28px;font-weight:700;letter-spacing:2px}
+.auth-left{font-size:13px;color:var(--muted);font-weight:600}
+.auth-bar{height:4px;background:var(--line);border-radius:99px;margin-top:10px;overflow:hidden}
+.auth-bar i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width 1s linear}
 .overlay{position:fixed;inset:0;width:var(--winw,100%);height:100vh;height:100dvh;background:rgba(8,14,10,.55);backdrop-filter:blur(3px);z-index:60;display:none;align-items:flex-end;justify-content:center}
 @media(min-width:700px){.overlay{align-items:center;padding:20px}}
 .overlay.open{display:flex}
@@ -642,6 +652,16 @@ body.batch-mode .vault-layout{grid-template-columns:1fr}
     </div>
   </section>
 
+  <!-- TAB: AUTH -->
+  <section class="tab-panel hidden" id="tab-auth">
+    <div class="big-card">
+      <h3>验证器</h3>
+      <p class="sub">这里是开了 2FA 的账号，验证码每 30 秒换一次，点一下就复制。2FA 密钥存在 .kdbx 文件的 otp 字段里，跟着文件走，坚果云同步就是文件同步。</p>
+      <div id="authList"></div>
+      <div class="empty hidden" id="authEmpty"><span class="big" aria-hidden="true">🔐</span><span>还没有设置 2FA 的账号</span><br><span class="hint">在账号编辑里找到「2FA 验证码」，粘贴网站给的密钥或 otpauth 链接，保存后这里就会显示验证码。</span></div>
+    </div>
+  </section>
+
   <!-- TAB: MORE -->
   <section class="tab-panel hidden" id="tab-more">
     <div class="big-card">
@@ -724,12 +744,13 @@ body.batch-mode .vault-layout{grid-template-columns:1fr}
     <div class="big-card">
       <h3>关于这个库</h3>
       <p class="sub" style="margin-bottom:0">标准 KeePass .kdbx 格式，可继续用 KeePassXC（Windows）、Strongbox / KeePassium（iOS）打开。收藏会以标签形式写进库文件，换客户端也不会丢。</p>
-      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：appfix-20261126</p>
+      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：totp-20261127</p>
     </div>
   </section>
 
   <nav class="bottom-nav" aria-label="主导航">
     <button data-tab="vault" class="active"><span class="ic" aria-hidden="true">🗂️</span>密码库</button>
+    <button data-tab="auth"><span class="ic" aria-hidden="true">🔐</span>验证器</button>
     <button data-tab="more"><span class="ic" aria-hidden="true">⚙️</span>设置</button>
   </nav>
 </div>
@@ -756,6 +777,11 @@ body.batch-mode .vault-layout{grid-template-columns:1fr}
       <div class="field"><label for="fUser">账号 / 用户名</label><input id="fUser" placeholder="手机号、邮箱或用户名" autocomplete="off"><select id="fUserPick" class="field-pick"></select></div>
       <div class="field"><label for="fPass">密码</label>
         <div style="display:flex;gap:8px"><input id="fPass" type="text" placeholder="密码" autocomplete="new-password" style="flex:1;padding:13px 15px;border-radius:13px;border:1.5px solid var(--line);background:var(--bg);font-family:var(--mono);font-size:16px;min-width:0"><button class="btn btn-sm" type="button" onclick="generateForEditor()">🎲 生成</button></div>
+      </div>
+      <div class="field"><label for="fTotp">2FA 验证码（TOTP）</label>
+        <input id="fTotp" placeholder="粘贴网站给的密钥或 otpauth:// 链接" autocomplete="off">
+        <div class="hint">网站开启两步验证时给的密钥（或 otpauth:// 链接），粘贴在这里。保存后去底部的「验证器」页看验证码。密钥存在 .kdbx 的 otp 字段里，跟着文件走，KeePassXC 这些软件也能认。</div>
+        <div class="hint hidden" id="fTotpPreview">当前验证码：<b id="fTotpCode" style="font-family:var(--mono);font-size:18px"></b> <span id="fTotpLeft"></span></div>
       </div>
       <div id="fCustomFields"></div>
       <button class="btn btn-sm" type="button" id="btnAddField" style="margin-top:4px">＋ 添加字段</button>
@@ -1869,6 +1895,157 @@ function setField(entry,name,value,protect){
     if(entry.fields&&typeof entry.fields.set==='function') entry.fields.set(name,val); else entry.fields[name]=val;
   }catch(e){ try{entry.fields[name]=value||''}catch(_){}}
 }
+/* ---------- TOTP 2FA ---------- */
+/* 2FA 验证码（TOTP，RFC 6238）：密钥存在条目的 otp 字段里，值是 otpauth://totp/... 链接
+   （开源 KeePass 的通用存法，KeePassXC / KeePassium / KeePassDX 都认这个字段），
+   跟着 .kdbx 文件走，坚果云同步就是文件同步。验证码用 Web Crypto 的 HMAC-SHA1 算。 */
+function base32Decode(str){
+  var s=(str||'').toUpperCase().replace(/[\s=]/g,'');
+  var alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567', bits=0, val=0, out=[];
+  for(var i=0;i<s.length;i++){
+    var idx=alphabet.indexOf(s[i]);
+    if(idx<0) return null; // 有非法字符
+    val=(val<<5)|idx; bits+=5;
+    if(bits>=8){ out.push((val>>>(bits-8))&255); bits-=8; }
+  }
+  return new Uint8Array(out);
+}
+function parseTotpUri(str){
+  var s=(str||'').trim(); if(!s) return null;
+  if(/^otpauth:\/\/totp\//i.test(s)){
+    try{
+      var u=new URL(s);
+      var params=new URLSearchParams(u.search);
+      var secret=params.get('secret'); if(!secret) return null;
+      var label=decodeURIComponent(u.pathname.replace(/^\//,''));
+      var issuer=params.get('issuer')||'';
+      var account=label;
+      if(label.indexOf(':')>-1){ var parts=label.split(':'); issuer=issuer||parts[0]; account=parts.slice(1).join(':'); }
+      return {secret:secret, issuer:issuer, account:account,
+        digits:parseInt(params.get('digits')||'6',10)||6,
+        period:parseInt(params.get('period')||'30',10)||30,
+        algorithm:(params.get('algorithm')||'SHA1').toUpperCase()};
+    }catch(e){ return null; }
+  }
+  // 裸密钥（base32 字符串）：直接当密钥用，默认 6 位、30 秒、SHA1
+  var clean=s.replace(/[\s=]/g,'').toUpperCase();
+  if(!/^[A-Z2-7]+$/.test(clean)||clean.length<16) return null;
+  return {secret:clean, issuer:'', account:'', digits:6, period:30, algorithm:'SHA1'};
+}
+function normalizeTotp(str){
+  var p=parseTotpUri(str); if(!p) return null;
+  var secret=p.secret.replace(/[\s=]/g,'').toUpperCase();
+  var label=(p.issuer?p.issuer+':':'')+(p.account||'');
+  var uri='otpauth://totp/'+encodeURIComponent(label)+'?secret='+secret+'&issuer='+encodeURIComponent(p.issuer||'');
+  if(p.digits!==6) uri+='&digits='+p.digits;
+  if(p.period!==30) uri+='&period='+p.period;
+  if(p.algorithm&&p.algorithm!=='SHA1') uri+='&algorithm='+p.algorithm;
+  return uri;
+}
+function totpCode(secretBytes, timeMs, digits, period, algorithm){
+  var counter=Math.floor(timeMs/1000/period);
+  var buf=new ArrayBuffer(8), view=new DataView(buf);
+  view.setUint32(0, Math.floor(counter/0x100000000));
+  view.setUint32(4, counter>>>0);
+  var algo='SHA-1'; if(algorithm==='SHA256') algo='SHA-256'; else if(algorithm==='SHA512') algo='SHA-512';
+  return crypto.subtle.importKey('raw', secretBytes, {name:'HMAC', hash:algo}, false, ['sign'])
+    .then(function(key){ return crypto.subtle.sign('HMAC', key, buf); })
+    .then(function(sig){
+      var h=new Uint8Array(sig);
+      var offset=h[h.length-1]&0x0f;
+      var code=((h[offset]&0x7f)<<24)|((h[offset+1]&0xff)<<16)|((h[offset+2]&0xff)<<8)|(h[offset+3]&0xff);
+      var s=String(code%(Math.pow(10,digits)));
+      while(s.length<digits) s='0'+s;
+      return s;
+    });
+}
+function totpRawForEntry(entry){
+  return fieldText(entry,'otp')||fieldText(entry,'OTP')||fieldText(entry,'Totp')||fieldText(entry,'TOTP')||'';
+}
+function totpCodeForEntry(entry, timeMs){
+  var p=parseTotpUri(totpRawForEntry(entry)); if(!p) return Promise.resolve(null);
+  var bytes=base32Decode(p.secret); if(!bytes||!bytes.length) return Promise.resolve(null);
+  return totpCode(bytes, timeMs==null?Date.now():timeMs, p.digits, p.period, p.algorithm)
+    .then(function(code){ return {code:code, issuer:p.issuer, account:p.account, digits:p.digits, period:p.period}; })
+    .catch(function(){ return null; });
+}
+function totpEntries(){
+  if(!db) return [];
+  return allEntries().filter(function(x){ return !!parseTotpUri(totpRawForEntry(x.entry)); });
+}
+/* 验证码每秒刷新：验证器页、详情页、编辑器预览共用一个 1 秒定时器，
+   只在有 2FA 显示在眼前时才算码，没显示时直接返回，不耗电。 */
+var totpTimer=null;
+function totpTick(){
+  if(!db) return;
+  var now=Date.now();
+  var period=30;
+  var remain=period - Math.floor(now/1000)%period;
+  function fmt(code){ return code.slice(0,3)+' '+code.slice(3); }
+  if(currentTab==='auth'){
+    document.querySelectorAll('#authList .auth-item').forEach(function(div){
+      var en=div._entry; if(!en) return;
+      totpCodeForEntry(en, now).then(function(r){
+        if(!r) return;
+        var codeEl=div.querySelector('.auth-code');
+        codeEl.textContent=fmt(r.code);
+        codeEl.setAttribute('data-code', r.code);
+        var leftEl=div.querySelector('.auth-left');
+        if(leftEl) leftEl.textContent=remain+'s';
+        var bar=div.querySelector('.auth-bar i');
+        if(bar) bar.style.width=(remain/r.period*100)+'%';
+      });
+    });
+  }
+  var dCode=$('detailTotpCode');
+  if(dCode && currentEntry && $('detailOverlay').classList.contains('open')){
+    totpCodeForEntry(currentEntry, now).then(function(r){
+      if(r){ dCode.textContent=fmt(r.code); dCode.setAttribute('data-code', r.code);
+        var dCopy=$('detailTotpCopy'); if(dCopy) dCopy.setAttribute('data-copy', r.code); }
+    });
+  }
+  var fPrev=$('fTotpPreview');
+  if(fPrev && !$('fTotpPreview').classList.contains('hidden') && $('editorOverlay').classList.contains('open')){
+    var p=parseTotpUri(($('fTotp').value||'').trim());
+    if(p){
+      var bytes=base32Decode(p.secret);
+      if(bytes&&bytes.length){
+        totpCode(bytes, now, p.digits, p.period, p.algorithm).then(function(code){
+          $('fTotpCode').textContent=fmt(code);
+          $('fTotpLeft').textContent='剩 '+remain+' 秒';
+        });
+      }
+    }
+  }
+}
+function startTotpTimer(){
+  if(totpTimer) return;
+  totpTimer=setInterval(totpTick, 1000);
+}
+function stopTotpTimer(){ if(totpTimer){ clearInterval(totpTimer); totpTimer=null; } }
+function renderAuth(){
+  var list=$('authList'); if(!list) return;
+  var items=totpEntries();
+  $('authEmpty').classList.toggle('hidden', items.length>0);
+  list.innerHTML='';
+  items.forEach(function(x){
+    var en=x.entry;
+    var title=fieldText(en,'Title')||'(无标题)';
+    var user=fieldText(en,'UserName')||'';
+    var div=document.createElement('div');
+    div.className='auth-item';
+    div.innerHTML='<div class="auth-meta"><b></b><span></span></div><div class="auth-code-row"><span class="auth-code">••••••</span><span class="auth-left"></span></div><div class="auth-bar"><i></i></div>';
+    div.querySelector('.auth-meta b').textContent=title;
+    div.querySelector('.auth-meta span').textContent=user;
+    div._entry=en;
+    div.addEventListener('click', function(){
+      var code=div.querySelector('.auth-code').getAttribute('data-code');
+      if(code) copyText(code);
+    });
+    list.appendChild(div);
+  });
+  totpTick();
+}
 function entryTags(entry){
   try{ var t=entry.tags; if(!t) return []; if(Array.isArray(t)) return t.slice(); return String(t).split(/[;,]/).map(function(x){return x.trim()}).filter(Boolean); }catch(e){return []}
 }
@@ -2266,16 +2443,18 @@ function enterVault(name){
   loadDavConfigFromDb(); // 文件里存了坚果云地址/账号，就自动填进坚果云表单
   if(typeof updateChgPwdUI==='function') updateChgPwdUI(); // 有密钥文件的库才显示“重新选密钥文件”
   renderAll(); if(typeof updateDavUI==='function') updateDavUI(); updateHomeSaveUI(); if(typeof updateFaceIdSettings==='function') updateFaceIdSettings(); resetLockTimer(); window.scrollTo(0,0);
+  if(typeof startTotpTimer==='function') startTotpTimer(); // 解锁后开始每秒刷新验证码
   if(typeof fitRootWidth==='function') fitRootWidth();
 }
 function switchTab(tab){
   currentTab=tab;
-  ['vault','more'].forEach(function(t){ $('tab-'+t).classList.toggle('hidden',t!==tab); });
+  ['vault','auth','more'].forEach(function(t){ $('tab-'+t).classList.toggle('hidden',t!==tab); });
   /* 密码库页用应用壳布局（顶栏固定、左右两栏各自独立滚动），设置页照常整页滚动 */
   $('vaultView').classList.toggle('vault-tab', tab==='vault');
   document.querySelectorAll('.bottom-nav button').forEach(function(b){ b.classList.toggle('active',b.getAttribute('data-tab')===tab); });
   updateVaultHead();
   window.scrollTo(0,0);
+  if(tab==='auth') renderAuth();
   if(typeof fitRootWidth==='function') fitRootWidth();
 }
 document.querySelectorAll('.bottom-nav button').forEach(function(b){ b.addEventListener('click',function(){ switchTab(b.getAttribute('data-tab')); }); });
@@ -2333,12 +2512,18 @@ $('btnCreateGroup').addEventListener('click',function(){
 function populateSearchScope(){
   var sel=$('searchScope'); if(!sel) return;
   var prev=sel.value||'all';
+  /* 只放常用字段：固定那几个 + 模板里定义的字段。
+     以前是扫全库所有条目的字段名，别家软件写进来的内部字段（_etm_position_*、_etm_template
+     这些）全都进了下拉，又长又没用。模板里定义的才是我们自己的常用字段；
+     条目里临时加的、不在模板里的字段，走「全部字段」全文搜一样能找到。 */
   var customs={};
-  allEntries().forEach(function(x){
-    entryFieldNames(x.entry).forEach(function(n){
+  (templates||[]).forEach(function(t){
+    (t.fields||[]).forEach(function(f){
+      var n=f.name; if(!n) return;
       var c=canonicalFieldName(n);
       if(['Title','UserName','Password','URL','Notes','_favorite'].indexOf(c)>-1) return;
-      if(isPasswordField(n,fieldTypeFor(n))) return; // 密码类字段不让搜，不进范围下拉
+      if(n.charAt(0)==='_') return; // 内部字段（_etm_* 等）不进下拉
+      if(isPasswordField(n,f.type)) return; // 密码类字段不让搜，不进范围下拉
       var dn=displayFieldName(n);
       if(dn==='手机号'||dn==='邮箱') return; // 已有固定的“手机号/邮箱”范围（匹配所有同类字段），不再重复列
       customs[dn]=n;
@@ -2358,6 +2543,7 @@ function entryMatchesSearch(x,q,scope){
     var names=entryFieldNames(x.entry);
     var vals=[];
     names.forEach(function(n){
+      if(n.charAt(0)==='_') return; // 内部字段（_etm_* 等）不参与搜索，不然搜“邮箱”会把带 _etm_position_邮箱 的条目全匹配上
       if(isPasswordField(n,fieldTypeFor(n))) return; // 密码字段不让搜
       vals.push(fieldText(x.entry,n));
       vals.push(displayFieldName(n));
@@ -2607,7 +2793,7 @@ function openDetail(entry){
   favBtn.onclick=function(){ setFav(entry,!isFav(entry)); try{entry.update()}catch(e){} markDirty(); openDetail(entry); renderAll(); };
   var h='';
   var order=['UserName','Password'];
-  entryFieldNames(entry).forEach(function(n){ if(n==='Title'||n==='_favorite') return; if(order.indexOf(n)===-1) order.push(n); });
+  entryFieldNames(entry).forEach(function(n){ if(n==='Title'||n==='_favorite') return; if(n.toLowerCase()==='otp'||n.toLowerCase()==='totp') return; if(order.indexOf(n)===-1) order.push(n); }); // 2FA 密钥不直接显示，下面单独给一行“当前验证码”
   order.forEach(function(n){
     var v=fieldText(entry,n);
     if(v===''&&n!=='UserName'&&n!=='Password') return;
@@ -2616,6 +2802,9 @@ function openDetail(entry){
     var isUrl=(n==='URL'||fieldTypeFor(n)==='url')&&/^https?:\/\//i.test(v);
     h+=kvRow(disp,v,{masked:masked,link:isUrl});
   });
+  if(parseTotpUri(totpRawForEntry(entry))){
+    h+='<div class="kv"><div class="k">当前验证码</div><div class="row"><span class="v" id="detailTotpCode" data-code="">••••••</span><button class="copy-btn" data-copy="" id="detailTotpCopy">复制</button></div></div>';
+  }
   try{ var mt=entry.times&&entry.times.lastModificationTime; if(mt) h+='<p class="hint">最后修改：'+new Date(mt).toLocaleString('zh-CN')+'</p>'; }catch(e){}
   $('detailBody').innerHTML=h;
   // 回收站里的条目：不让编辑（已经是删掉的账号），改成“恢复”和“彻底删除”；
@@ -2627,6 +2816,7 @@ function openDetail(entry){
   $('btnDeleteEntry').textContent=inRb?'彻底删除':'删除';
   if(inRb) $('detailSub').textContent='回收站';
   openOverlay('detailOverlay');
+  if(typeof totpTick==='function') totpTick(); // 有 2FA 的账号，打开详情就马上算一次验证码，不用等下一秒
 }
 $('btnEditEntry').addEventListener('click',function(){ closeOverlay('detailOverlay'); openEntryEditor(currentEntry); });
 $('btnRestoreEntry').addEventListener('click',function(){ if(!currentEntry) return; doRestoreEntry(); });
@@ -2887,6 +3077,8 @@ function openEntryEditor(entry,prefillPwd){
   $('fTitle').value=entry?fieldText(entry,'Title'):'';
   $('fUser').value=entry?fieldText(entry,'UserName'):'';
   $('fPass').value=entry?fieldText(entry,'Password'):(prefillPwd||'');
+  $('fTotp').value=entry?totpRawForEntry(entry):'';
+  $('fTotpPreview').classList.add('hidden');
   $('fFav').checked=entry?isFav(entry):false;
   // 编辑旧条目时，字段按库里存的顺序排（这样上次调好的顺序、删掉的字段都不会复活）；
   // 新建时按模板顺序排。模板里有、条目里没有的字段不自动补回来——删了就是删了，
@@ -2896,6 +3088,7 @@ function openEntryEditor(entry,prefillPwd){
     ordered=[];
     entryFieldNames(entry).forEach(function(n){
       if(['Title','UserName','Password','_favorite'].indexOf(n)>-1) return;
+      if(n.toLowerCase()==='otp'||n.toLowerCase()==='totp') return; // 2FA 密钥走专门的输入框，不进自定义字段
       var inTpl=tpl.fields.filter(function(f){ return f.name===n||canonicalFieldName(f.name)===n||canonicalFieldName(f.name)===canonicalFieldName(n); })[0];
       ordered.push({name:displayFieldName(n),type:inTpl?inTpl.type:inferFieldType(n)});
     });
@@ -2929,8 +3122,22 @@ function openEntryEditor(entry,prefillPwd){
   $('btnDeleteEntry2').classList.toggle('hidden',!entry);
   if(entry){ var gw=allGroups().filter(function(g){return (g.group.entries||[]).indexOf(entry)>-1})[0]; if(gw) $('fGroup').value=gw.uuid; }
   else if(currentGroupUuid) $('fGroup').value=currentGroupUuid;
+  updateTotpPreview(); // 编辑已有 2FA 账号时，直接显示当前验证码，方便核对
   openOverlay('editorOverlay');
 }
+/* 编辑器里 2FA 输入框的实时预览：粘贴的密钥能算出码，就显示当前验证码；
+   格式不对就藏起来，保存时再拦。 */
+function updateTotpPreview(){
+  var p=parseTotpUri(($('fTotp').value||'').trim());
+  if(!p){ $('fTotpPreview').classList.add('hidden'); return; }
+  var bytes=base32Decode(p.secret);
+  if(!bytes||!bytes.length){ $('fTotpPreview').classList.add('hidden'); return; }
+  $('fTotpPreview').classList.remove('hidden');
+  totpCode(bytes, Date.now(), p.digits, p.period, p.algorithm).then(function(code){
+    $('fTotpCode').textContent=code.slice(0,3)+' '+code.slice(3);
+  }).catch(function(){ $('fTotpPreview').classList.add('hidden'); });
+}
+$('fTotp').addEventListener('input',function(){ updateTotpPreview(); });
 $('btnAddEntry').addEventListener('click',function(){ openEntryEditor(null); });
 /* 从所有条目里收集手机号/邮箱，确保常用里有它们（和批量自动加一样的规则）。
    这样即使某次自动加没触发，常用也不会漏掉条目里在用的新号码。只加条目里在用的值，
@@ -2972,6 +3179,11 @@ $('btnSaveEntry').addEventListener('click',function(){
     if(fieldText(x.entry,'Title').trim().toLowerCase()===title.toLowerCase()) dupTitle=fieldText(x.entry,'Title');
   });
   if(dupTitle){ toast('标题“'+title+'”已经存在，不能重名。换个标题再保存。'); return; }
+  // 2FA 密钥格式：粘贴的必须是 otpauth:// 链接或 base32 密钥，格式不对直接拦住。
+  // 放在创建条目之前拦，不然拦住了还留一个空条目在库里（和标题重名校验一个道理）。
+  var totpVal=($('fTotp').value||'').trim();
+  var totpNorm=totpVal?normalizeTotp(totpVal):'';
+  if(totpVal&&!totpNorm){ toast('2FA 密钥格式不对：粘贴网站给的密钥（字母数字串）或 otpauth:// 链接。'); return; }
   var en=editingEntry, isNew=false;
   if(!en){ en=db.createEntry(target.group); isNew=true; }
   // 字段名不能重复（按规范化后的名字比，“网址”和“URL”是同一个字段），
@@ -3008,6 +3220,10 @@ $('btnSaveEntry').addEventListener('click',function(){
     if(!n||v===''||v==null) return;
     setField(en,canonicalFieldName(n),v,isPasswordField(n,fieldTypeFor(n)));
   });
+  // 2FA 密钥单独存 otp 字段（开源 KeePass 的通用存法，KeePassXC 等软件也认）；
+  // 上面删字段那一步已经把旧的 otp 清掉了，这里有值就重新写上，没值就是用户清掉了，不管它。
+  // otp 字段名含 otp，按密码类字段存成掩码，别的软件打开也显示 •••••。
+  if(totpNorm) setField(en,'otp',totpNorm,true);
   setFav(en,$('fFav').checked);
   try{ en.update(); }catch(e){}
   try{ db.update(); }catch(e){}
@@ -3201,6 +3417,7 @@ function doLock(){
   if(typeof clipClearOn==='function'&&clipClearOn()){ try{ clearClipboardNow(); }catch(e){} }
   if(typeof disarmClipClear==='function') disarmClipClear();
   db=null; currentEntry=null; editingEntry=null; selectedFileBuffer=null; selectedFileName=''; localFileHandle=null; currentFileId=''; currentMasterPwd=''; currentKeyBuf=null; nativeFileUri=''; davLastBytes=null; updateHomeSaveUI();
+  if(typeof stopTotpTimer==='function') stopTotpTimer(); // 锁定后停掉验证码刷新
   // 锁定后本地文件选择要清干净：文件名、has-file 样式、input 本身都复位，
   // 不然解锁页看着还选着文件，点解锁却报“请先选择 .kdbx 文件”。
   try{ $('fileLabel').textContent='点这里选择 .kdbx 文件'; $('dropZone').classList.remove('has-file'); $('fileInput').value=''; $('keyFileInput').value=''; $('btnRemoveKeyFile').classList.add('hidden'); $('davKeyFile').value=''; $('btnRemoveDavKeyFile').classList.add('hidden'); $('chgKeyFile').value=''; $('btnRemoveChgKeyFile').classList.add('hidden'); }catch(e){}
@@ -3598,4 +3815,4 @@ window.addEventListener('orientationchange',fitRootWidth);
 <!-- deletetm-20261126 -->
 <!-- tplreq-20261126 -->
 <!-- recycle-20261126 -->
-<!-- appfix-20261126 -->
+<!-- totp-20261127 -->
