@@ -53,7 +53,6 @@ input,select,textarea{min-width:0}
    横向滚动的筛选/分组收到各自容器里，整页再也不向外扩；位置和顺序一处不动。
    overflow-x:clip 不会像 hidden 那样破坏 sticky，标题栏照常吸顶 */
 .search-box{min-width:0}
-.vault-layout>*{min-width:0}
 .chip-row,.group-row,.batch-chips{min-width:0}
 /* .wrap 上也不再加 overflow-x:clip：同上，放大后要能横向滑到右边的按钮；
    横向滚动的筛选/分组收到各自容器里（overflow-x:auto），整页宽度由视口脚本管。 */
@@ -240,24 +239,35 @@ input[type=range]{width:100%;accent-color:var(--accent);min-height:36px}
   .chip-row{gap:6px}
   .chip-row .chip{padding:8px 11px}
 }
-.group-row{display:flex;gap:8px;overflow-x:auto;padding:8px 2px 2px;scrollbar-width:none}
-.group-row::-webkit-scrollbar{display:none}
-.g-chip{border:1px solid transparent;background:var(--surface);border-radius:999px;padding:9px 14px;font-weight:600;font-size:13.5px;min-height:44px;white-space:nowrap;display:inline-flex;gap:7px;align-items:center}
-.g-chip .n{color:var(--faint);font-size:12.5px}
+/* ---------- 密码库两页：分组页（纯分组列表）+ 条目页 ---------- */
+#vaultGroupsPage{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;margin-top:10px}
+#vaultEntriesPage{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;margin-top:10px}
+#vaultEntriesPage .entry-col{flex:1;min-height:0;position:relative;display:flex;flex-direction:column;overflow:hidden}
+#vaultEntriesPage .entry-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.group-row{display:flex;flex-direction:column;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:8px}
+.g-chip{border:1px solid transparent;background:transparent;border-radius:12px;padding:12px;font-weight:600;font-size:15px;min-height:48px;white-space:nowrap;display:flex;gap:7px;align-items:center;justify-content:space-between;width:100%;text-align:left}
+.g-chip .n{margin-left:auto;color:var(--faint);font-size:13px;font-weight:500}
+.g-chip .go{color:var(--faint);font-size:15px;margin-left:2px}
 .g-chip.active{border-color:var(--accent);color:var(--accent-strong);background:var(--accent-soft)}
-.g-chip.add{border:1.5px dashed var(--line);color:var(--muted);background:transparent}
-
-.vault-layout{display:grid;grid-template-columns:1fr;gap:16px;align-items:start;margin-top:10px}
-@media(min-width:960px){
-  .vault-layout{grid-template-columns:250px 1fr}
-  .group-row{flex-direction:column;overflow:visible;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:10px;position:sticky;top:150px}
-  .g-chip{justify-content:space-between;width:100%}
-  .g-chip .n{margin-left:auto}
-}
-/* ---------- vault shell: 两栏独立滚动，顶栏固定 ----------
+.g-chip.add{border:1.5px dashed var(--line);color:var(--muted);background:transparent;justify-content:center}
+/* 条目页顶：返回 + 组名 + 数量 */
+.entries-head{display:flex;align-items:center;gap:10px;padding:2px 0 10px;flex-shrink:0}
+.entries-head #btnVaultBack{font-size:15px;font-weight:700;flex-shrink:0}
+.entries-head b{font-size:17px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.entries-head .entries-count{font-size:13px;color:var(--muted);white-space:nowrap}
+/* 首字母分段标题 + 右侧 A–Z 索引（点字母跳到那一组） */
+.alpha-head{font-size:13px;font-weight:700;color:var(--muted);padding:10px 4px 4px;grid-column:1/-1}
+.alpha-index{position:absolute;right:2px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;gap:1px;z-index:5}
+.alpha-idx-btn{border:none;background:transparent;color:var(--accent-strong);font-size:11px;font-weight:700;line-height:1.15;padding:1px 5px;min-height:0;cursor:pointer}
+.alpha-idx-btn:active{background:var(--accent-soft);border-radius:6px}
+.entry-col.has-alpha .entry-scroll{padding-right:24px}
+/* 分组页不显示批量/新增（只在条目页里）；批量模式下条目页顶藏起（批量有自己的顶） */
+#tab-vault.vault-page-groups #btnBatchToggle,
+#tab-vault.vault-page-groups #btnAddEntry{display:none}
+body.batch-mode #vaultEntriesPage .entries-head{display:none}
+/* ---------- vault shell: 两页，顶栏固定，内容区自己滚 ----------
    密码库页（.vault-tab）改成应用壳：整页高固定，不跟页面一起滚。
-   顶栏（标题/搜索/保存）+ 筛选行（全部/收藏/批量/新增）固定不动；
-   下面左右两栏（分组侧边栏 / 密码条目）各自独立滚动，互不影响。
+   顶栏（标题/搜索/保存）+ 筛选行固定不动；下面分组页或条目页自己滚动。
    设置页不加 .vault-tab，照常整页滚动。 */
 #vaultView.vault-tab{height:calc(100dvh - var(--nav-h) - env(safe-area-inset-bottom,0px));min-height:0;overflow:hidden}
 #vaultView.vault-tab .vault-head{position:static;flex-shrink:0}
@@ -266,14 +276,6 @@ input[type=range]{width:100%;accent-color:var(--accent);min-height:36px}
 #vaultView.vault-tab .chip-row,
 #vaultView.vault-tab .batch-status,
 #vaultView.vault-tab .batch-bar{flex-shrink:0}
-#vaultView.vault-tab .vault-layout{flex:1;min-height:0;overflow:hidden;grid-template-rows:auto minmax(0,1fr);align-items:stretch}
-#vaultView.vault-tab .entry-col{overflow-y:auto;min-height:0;overscroll-behavior:contain}
-@media(min-width:960px){
-  #vaultView.vault-tab .vault-layout{grid-template-columns:250px 1fr;grid-template-rows:minmax(0,1fr)}
-  /* 分组侧边栏自己滚，不再 sticky（父级已经不滚动了）；批量模式下侧边栏变回横向，单列布局不变 */
-  #vaultView.vault-tab .group-row{overflow-y:auto;min-height:0;overscroll-behavior:contain;position:static}
-  body.batch-mode #vaultView.vault-tab .vault-layout{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}
-}
 
 
 /* entry cards */
@@ -335,7 +337,8 @@ input[type=range]{width:100%;accent-color:var(--accent);min-height:36px}
 .auth-bar{height:4px;background:var(--line);border-radius:99px;margin-top:10px;overflow:hidden}
 .auth-bar i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width 1s linear}
 .auth-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-.auth-del{margin-left:auto;border:none;background:none;font-size:18px;cursor:pointer;padding:4px 2px;color:var(--muted)}
+.auth-del{border:none;background:none;font-size:18px;cursor:pointer;padding:4px 2px;color:var(--muted)}
+.auth-edit{margin-left:auto;border:none;background:none;font-size:16px;cursor:pointer;padding:4px 2px;color:var(--muted)}
 #scanVideo{width:100%;border-radius:12px;background:#000;max-height:60vh}
 .overlay{position:fixed;inset:0;width:var(--winw,100%);height:100vh;height:100dvh;background:rgba(8,14,10,.55);backdrop-filter:blur(3px);z-index:60;display:none;align-items:flex-end;justify-content:center}
 @media(min-width:700px){.overlay{align-items:center;padding:20px}}
@@ -406,16 +409,10 @@ input[type=range]{width:100%;accent-color:var(--accent);min-height:36px}
 .batch-status{position:sticky;top:0;z-index:5;background:var(--surface);border:1.5px solid var(--accent);border-radius:var(--r-md);padding:12px 14px;margin-top:10px;box-shadow:var(--shadow)}
 /* 批量模式布局：顶部保存区不再 sticky（否则 z-index 30 会盖住批量面板），
    状态栏成为唯一的置顶条；全部账号列表单列放在状态栏下方、操作面板上方，
-   选中只打勾不移动不重排；分组侧栏在批量模式下变回列表上方的横向 chips */
+   选中只打勾不移动不重排 */
 body.batch-mode .vault-head{position:static}
 body.batch-mode .batch-status{top:0;z-index:20}
 body.batch-mode .entry-list{grid-template-columns:1fr}
-body.batch-mode .vault-layout{grid-template-columns:1fr}
-@media(min-width:960px){
-  body.batch-mode .group-row{position:static;flex-direction:row;overflow-x:auto;background:transparent;border:none;padding:8px 2px 2px}
-  body.batch-mode .g-chip{width:auto;justify-content:flex-start}
-  body.batch-mode .g-chip .n{margin-left:4px}
-}
 .batch-status-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .batch-all{display:flex;gap:8px;align-items:center;font-weight:700;font-size:14px;min-height:44px;cursor:pointer;flex-shrink:0}
 .batch-all input{width:22px;height:22px;accent-color:var(--accent)}
@@ -631,7 +628,6 @@ body.batch-mode .vault-layout{grid-template-columns:1fr}
       <span class="batch-count" id="batchCountTop">已选 0 个</span>
     </div>
     <div class="chip-row" id="filterRow" role="tablist" aria-label="筛选">
-      <button class="chip active" data-filter="all">全部</button>
       <button class="chip" id="btnBatchToggle" type="button" title="批量选择">☑ 批量</button>
       <button class="chip chip-add" id="btnAddEntry" type="button" aria-label="添加账号">＋ 新增</button>
       <button class="chip chip-save hidden" id="btnHomeDavSave" type="button" title="保存回坚果云">保存</button>
@@ -654,12 +650,24 @@ body.batch-mode .vault-layout{grid-template-columns:1fr}
       </div>
       <p class="batch-query-hint" id="batchQueryHint">先选一个值点查询，列出所有用这个值的账号，再勾选要改的。</p>
     </div>
-    <div class="vault-layout">
+    <!-- 密码库第一页：纯分组列表（全部/收藏/回收站/各分组），点一行进条目页 -->
+    <div id="vaultGroupsPage">
       <nav class="group-row" id="groupList" aria-label="分组"></nav>
+    </div>
+    <!-- 密码库第二页：这个组的所有密码条，右边 A–Z 首字母索引 -->
+    <div id="vaultEntriesPage" class="hidden">
+      <div class="entries-head">
+        <button class="btn" id="btnVaultBack" type="button">‹ 分组</button>
+        <b id="entriesTitle">全部</b>
+        <span class="entries-count" id="entriesCount"></span>
+      </div>
       <div class="entry-col">
-        <div class="recycle-bar hidden" id="recycleBar"><span class="hint" style="margin:0">回收站里的账号点进去可以恢复，也可以彻底删除。</span><button class="btn btn-sm btn-danger-ghost" id="btnEmptyRecycle" type="button">清空回收站</button></div>
-        <div class="entry-list" id="entryList"></div>
-        <div class="empty hidden" id="emptyState"><span class="big" aria-hidden="true">🗂️</span><span id="emptyText">这里还没有账号</span><br><button class="btn btn-primary btn-sm" style="margin-top:14px" onclick="openEntryEditor(null)">＋ 添加账号</button></div>
+        <div class="entry-scroll" id="entryScroll">
+          <div class="recycle-bar hidden" id="recycleBar"><span class="hint" style="margin:0">回收站里的账号点进去可以恢复，也可以彻底删除。</span><button class="btn btn-sm btn-danger-ghost" id="btnEmptyRecycle" type="button">清空回收站</button></div>
+          <div class="entry-list" id="entryList"></div>
+          <div class="empty hidden" id="emptyState"><span class="big" aria-hidden="true">🗂️</span><span id="emptyText">这里还没有账号</span><br><button class="btn btn-primary btn-sm" style="margin-top:14px" onclick="openEntryEditor(null)">＋ 添加账号</button></div>
+        </div>
+        <nav class="alpha-index hidden" id="alphaIndex" aria-label="首字母索引"></nav>
       </div>
     </div>
     <div class="batch-bar hidden" id="batchBar">
@@ -767,7 +775,7 @@ body.batch-mode .vault-layout{grid-template-columns:1fr}
     <div class="big-card">
       <h3>关于这个库</h3>
       <p class="sub" style="margin-bottom:0">标准 KeePass .kdbx 格式，可继续用 KeePassXC（Windows）、Strongbox / KeePassium（iOS）打开。收藏会以标签形式写进库文件，换客户端也不会丢。</p>
-      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：totp2-20261127</p>
+      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：vault2-20261127</p>
     </div>
   </section>
 
@@ -926,6 +934,8 @@ var currentKeyBuf=null; // 当前库的密钥文件字节（只放内存，锁�
 var nativeFileUri=''; // 原生 App 里用文件选择器选中的 .kdbx 路径（只放内存，锁定即清；保存时直接写回这个文件）
 var davLastBytes=null; // 上次从坚果云拉到的文件字节，用来判断远程有没有变
 var currentGroupUuid = null, currentFilter = 'all', currentTab = 'vault';
+var vaultPage='groups'; // 密码库两页：'groups' 分组页 | 'entries' 条目页
+var pageBeforeSearch=null; // 搜的时候记下之前在哪页，清空搜索就回去
 var clipTimer = null, lockTimer = null, toastTimer = null;
 
 /* ---------- localStorage: templates / contacts / Dav remember ---------- */
@@ -1854,7 +1864,7 @@ function applyBatch(){
     // 文件只在第一次打开时读一次，之后全在浏览器本地改，不再读文件、也不提示保存；
     // 等全部改完，用户最后点一次保存才写回文件（坚果云也一样）。
     toast('已批量修改 '+n+' 个账号'+(willAutoAdd?'，新值已加进常用':''));
-    try{ $('entryList').scrollIntoView({block:'start'}); }catch(e){}
+    try{ $('entryScroll').scrollTop=0; }catch(e){}
   });
 }
 function $(id){return document.getElementById(id)}
@@ -2088,6 +2098,43 @@ function totpEntries(){
   if(!db) return [];
   return allEntries().filter(function(x){ return !!parseTotpUri(totpRawForEntry(x.entry)); });
 }
+/* ---------- 纯 2FA 条目：只在验证器页出现，不进密码库 ---------- */
+/* 纯 2FA 条目 = 只有标题 + otp，没有密码、没有账号、没有其他字段（扫码/粘贴/导入新建的就是这种）。
+   它只在验证器页出现，密码库的全部/分组/搜索/批量都不显示它。
+   注意：没有密码但有其他内容的条目（验证码、其他方式）不是纯 2FA，照常显示在密码库里。
+   回收站里照常显示（删了要能恢复/彻底删除），所以过滤只做在密码库主列表，不做在回收站。 */
+function isTotpOnlyEntry(entry){
+  if(!parseTotpUri(totpRawForEntry(entry))) return false;
+  if(fieldText(entry,'Password')) return false;
+  if(fieldText(entry,'UserName')) return false;
+  var skip={Title:1,Password:1,UserName:1,otp:1,OTP:1,Totp:1,TOTP:1};
+  var names=entryFieldNames(entry);
+  for(var i=0;i<names.length;i++){
+    var n=names[i];
+    if(skip[n]||n.charAt(0)==='_') continue;
+    if(fieldText(entry,n)) return false;
+  }
+  return true;
+}
+/* 标题首字母（A–Z 索引）：拉丁字母取大写首字母；中文按拼音首字母；
+   数字/符号/其他归 #。拼音用 Intl.Collator('zh')（按拼音排序）+ 各声母首字做边界，二分查。
+   多音字按最常见读音（例如 重按 zhòng、行按 xíng），只是分段用的，不影响条目本身。 */
+var __zhColl=null;
+function zhColl(){ if(!__zhColl){ try{ __zhColl=new Intl.Collator('zh'); }catch(e){ __zhColl=null; } } return __zhColl; }
+var PY_BOUNDS=['啊','芭','擦','搭','蛾','发','噶','哈','击','喀','垃','妈','拿','哦','啪','期','然','撒','塌','挖','昔','压','匝'];
+var PY_INITIALS=['A','B','C','D','E','F','G','H','J','K','L','M','N','O','P','Q','R','S','T','W','X','Y','Z'];
+function titleInitial(title){
+  var s=(title||'').trim(); if(!s) return '#';
+  var ch=s.charAt(0);
+  if(/[A-Za-z]/.test(ch)) return ch.toUpperCase();
+  var code=ch.charCodeAt(0);
+  if(code<0x4E00||code>0x9FFF) return '#';
+  var coll=zhColl(); if(!coll) return '#';
+  var lo=0, hi=PY_BOUNDS.length-1, ans=0;
+  while(lo<=hi){ var mid=(lo+hi)>>1; if(coll.compare(ch,PY_BOUNDS[mid])>=0){ ans=mid; lo=mid+1; } else hi=mid-1; }
+  return PY_INITIALS[ans];
+}
+function initialRank(c){ return c==='#'?99:c.charCodeAt(0); }
 /* 验证码每秒刷新：验证器页、详情页、编辑器预览共用一个 1 秒定时器，
    只在有 2FA 显示在眼前时才算码，没显示时直接返回，不耗电。 */
 var totpTimer=null;
@@ -2149,9 +2196,10 @@ function renderAuth(){
     var user=fieldText(en,'UserName')||'';
     var div=document.createElement('div');
     div.className='auth-item';
-    div.innerHTML='<div class="auth-meta"><b></b><span></span></div><div class="auth-code-row"><span class="auth-code">••••••</span><span class="auth-left"></span><button class="auth-del" type="button" title="删除这个 2FA">🗑</button></div><div class="auth-bar"><i></i></div>';
+    div.innerHTML='<div class="auth-meta"><b></b><span></span></div><div class="auth-code-row"><span class="auth-code">••••••</span><span class="auth-left"></span><button class="auth-edit" type="button" title="编辑这个 2FA">✏️</button><button class="auth-del" type="button" title="删除这个 2FA">🗑</button></div><div class="auth-bar"><i></i></div>';
     div.querySelector('.auth-meta b').textContent=title;
     div.querySelector('.auth-meta span').textContent=user;
+    div.querySelector('.auth-edit').addEventListener('click', function(ev){ ev.stopPropagation(); openEntryEditor(en); });
     div.querySelector('.auth-del').addEventListener('click', function(ev){ ev.stopPropagation(); deleteAuthEntry(en); });
     div._entry=en;
     div.addEventListener('click', function(){
@@ -2710,7 +2758,7 @@ function enterVault(name){
   else if(selectedFileName) currentFileId='local:'+selectedFileName;
   else currentFileId='new:'+name;
   if(typeof recordRecentFile==='function') recordRecentFile(); // 记进解锁页的「最近打开」（最多 2 个）
-  currentGroupUuid=null; currentFilter='all'; currentTab='vault'; switchTab('vault');
+  currentGroupUuid=null; currentFilter='all'; currentTab='vault'; clearSearch(); showVaultPage('groups'); switchTab('vault');
   syncFilterChips();
   if(batchMode) setBatchMode(false);
   loadTplContactsFromDb(); // 从这个库的 customData 读模版/常用（跟着文件走，不用旧文件的缓存）
@@ -2732,17 +2780,57 @@ function switchTab(tab){
   if(typeof fitRootWidth==='function') fitRootWidth();
 }
 document.querySelectorAll('.bottom-nav button').forEach(function(b){ b.addEventListener('click',function(){ switchTab(b.getAttribute('data-tab')); }); });
-/* 筛选行只剩「全部」一个筛选 chip（收藏已搬到分组栏，保存/导出没有 data-filter，点了直接走各自的保存逻辑） */
-document.querySelectorAll('#filterRow .chip').forEach(function(c){ c.addEventListener('click',function(){ if(!c.getAttribute('data-filter')) return; currentFilter=c.getAttribute('data-filter'); currentGroupUuid=null; syncFilterChips(); renderGroups(); renderEntries(); }); });
-$('searchInput').addEventListener('input',function(){ $('searchClear').style.display=this.value?'grid':'none'; renderEntries(); });
+/* 筛选行没有筛选 chip 了（全部/收藏/回收站都搬到分组页，保存/导出点了直接走各自的逻辑） */
+$('searchInput').addEventListener('input',function(){ onSearchInput(); });
 $('searchInput').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); doSearch(); } });
-$('searchClear').addEventListener('click',function(){ $('searchInput').value=''; this.style.display='none'; renderEntries(); });
+$('searchClear').addEventListener('click',function(){ $('searchInput').value=''; onSearchInput(); });
 $('searchScope').addEventListener('change',function(){ renderEntries(); });
 $('btnSearch').addEventListener('click',function(){ doSearch(); });
-function doSearch(){ renderEntries(); try{ $('entryList').scrollIntoView({block:'start'}); }catch(e){} }
+$('btnVaultBack').addEventListener('click',function(){ goToGroups(); });
+function doSearch(){ onSearchInput(); try{ $('entryScroll').scrollTop=0; }catch(e){} }
 
 function renderAll(){ renderGroups(); renderEntries(); updateVaultSub(); populateSearchScope(); }
-function updateVaultSub(){ var total=allEntries().length; $('vaultSub').textContent='已解锁 · '+total+' 个账号 · '+(webdav?'来自坚果云 · 仅在本机内存中解密':'仅在本机内存中'); }
+function updateVaultSub(){ var total=allEntries().filter(function(x){return !isTotpOnlyEntry(x.entry)}).length; $('vaultSub').textContent='已解锁 · '+total+' 个账号 · '+(webdav?'来自坚果云 · 仅在本机内存中解密':'仅在本机内存中'); }
+/* ---------- 密码库两页：分组页 / 条目页 ---------- */
+function entriesTitleText(){
+  var q=($('searchInput').value||'').trim();
+  if(q) return '搜索结果';
+  if(currentFilter==='fav') return '★ 收藏';
+  if(currentFilter==='recycle') return '🗑 回收站';
+  if(currentGroupUuid){ var g=allGroups().filter(function(x){return x.uuid===currentGroupUuid})[0]; return g?g.name:'全部'; }
+  return '全部';
+}
+function showVaultPage(page){
+  vaultPage=page;
+  $('vaultGroupsPage').classList.toggle('hidden',page!=='groups');
+  $('vaultEntriesPage').classList.toggle('hidden',page!=='entries');
+  $('tab-vault').classList.toggle('vault-page-groups',page==='groups');
+  $('tab-vault').classList.toggle('vault-page-entries',page==='entries');
+}
+function goToGroups(){
+  if(batchMode) setBatchMode(false); // 回分组页先退出批量（批量只在条目页里）
+  showVaultPage('groups');
+  renderGroups();
+}
+function goToEntries(){
+  showVaultPage('entries');
+  renderEntries();
+}
+function clearSearch(){
+  var si=$('searchInput'); if(si) si.value='';
+  var sc=$('searchClear'); if(sc) sc.style.display='none';
+  pageBeforeSearch=null;
+}
+/* 搜索框一有字就切到条目页看全局结果（搜索是全局的，不受分组限制）；
+   字清掉就回之前那页。 */
+function onSearchInput(){
+  var si=$('searchInput'); if(!si) return;
+  var q=(si.value||'').trim();
+  var sc=$('searchClear'); if(sc) sc.style.display=si.value?'grid':'none';
+  if(q && pageBeforeSearch===null){ pageBeforeSearch=vaultPage; showVaultPage('entries'); }
+  else if(!q && pageBeforeSearch!==null){ var back=pageBeforeSearch; pageBeforeSearch=null; showVaultPage(back); }
+  renderEntries();
+}
 /* 筛选行「全部」的高亮跟着 currentFilter 走（收藏已搬到分组栏，筛选行只剩「全部」这一个筛选 chip） */
 function syncFilterChips(){
   document.querySelectorAll('#filterRow .chip[data-filter]').forEach(function(c){
@@ -2753,24 +2841,29 @@ function renderGroups(){
   var gs=allGroups(), list=$('groupList'); list.innerHTML='';
   function mk(label,count,uuid,active,onclick){
     var b=document.createElement('button'); b.className='g-chip'+(active?' active':'');
-    b.innerHTML='<span>'+escapeHtml(label)+'</span><span class="n">'+count+'</span>';
-    b.onclick=onclick||function(){ currentGroupUuid=uuid; currentFilter='all'; syncFilterChips(); renderGroups(); renderEntries(); };
+    b.innerHTML='<span>'+escapeHtml(label)+'</span><span class="n">'+count+'</span><span class="go">›</span>';
+    b.onclick=onclick||function(){ clearSearch(); currentGroupUuid=uuid; currentFilter='all'; syncFilterChips(); renderGroups(); goToEntries(); };
     list.appendChild(b);
   }
-  // 收藏放在全部下面的第一行：点它只看收藏（同时清掉分组）；点全部或任一分组则回到全部，分组栏是单选
-  var favCount=allEntries().filter(function(x){return isFav(x.entry)}).length;
-  mk('全部',allEntries().length,null,!currentGroupUuid&&currentFilter==='all',function(){
-    currentFilter='all'; currentGroupUuid=null; syncFilterChips(); renderGroups(); renderEntries();
+  // 全部/收藏/回收站的数量都不含纯 2FA 条目（纯 2FA 只在验证器页，不进密码库）；
+  // 点一行就进条目页看这个分组（同时清掉搜索，搜索是全局的、和分组不叠加）
+  var vaultEntries=allEntries().filter(function(x){ return !isTotpOnlyEntry(x.entry); });
+  var favCount=vaultEntries.filter(function(x){return isFav(x.entry)}).length;
+  mk('全部',vaultEntries.length,null,!currentGroupUuid&&currentFilter==='all',function(){
+    clearSearch(); currentFilter='all'; currentGroupUuid=null; syncFilterChips(); renderGroups(); goToEntries();
   });
   mk('★ 收藏',favCount,null,currentFilter==='fav'&&!currentGroupUuid,function(){
-    currentFilter='fav'; currentGroupUuid=null; syncFilterChips(); renderGroups(); renderEntries();
+    clearSearch(); currentFilter='fav'; currentGroupUuid=null; syncFilterChips(); renderGroups(); goToEntries();
   });
   // 回收站放收藏下面：点它只看回收站里的条目（删掉的账号都在这里，还能恢复或彻底删除）
   var rbCount=recycleBinEntries().length;
   mk('🗑 回收站',rbCount,null,currentFilter==='recycle'&&!currentGroupUuid,function(){
-    currentFilter='recycle'; currentGroupUuid=null; syncFilterChips(); renderGroups(); renderEntries();
+    clearSearch(); currentFilter='recycle'; currentGroupUuid=null; syncFilterChips(); renderGroups(); goToEntries();
   });
-  gs.forEach(function(gw){ mk(gw.name,(gw.group.entries||[]).length,gw.uuid,currentGroupUuid===gw.uuid); });
+  gs.forEach(function(gw){
+    var c=(gw.group.entries||[]).filter(function(en){ return !isTotpOnlyEntry(en); }).length;
+    mk(gw.name,c,gw.uuid,currentGroupUuid===gw.uuid);
+  });
   var add=document.createElement('button'); add.className='g-chip add'; add.innerHTML='<span>＋ 新分组</span>';
   add.onclick=function(){ $('gName').value=''; openOverlay('groupOverlay'); setTimeout(function(){$('gName').focus()},80); };
   list.appendChild(add);
@@ -2852,6 +2945,8 @@ function filteredEntries(){
     if(q) es=es.filter(function(x){ return entryMatchesSearch(x,q,($('searchScope')||{}).value||'all'); });
   } else {
     es=allEntries();
+    // 纯 2FA 条目不进密码库（只在验证器页），所以全部/分组/收藏/搜索/批量都不含它
+    es=es.filter(function(x){ return !isTotpOnlyEntry(x.entry); });
     // 有搜索关键词时：搜索是全局全文检索，不受分组/收藏筛选限制，
     // 不然在某个分组里搜不到别的分组的条目，看着像搜索坏了。
     if(!q){
@@ -2861,7 +2956,14 @@ function filteredEntries(){
     if(batchMode&&batchQuery) es=es.filter(function(x){return fieldText(x.entry,batchQuery.field)===batchQuery.value;});
     if(q) es=es.filter(function(x){ return entryMatchesSearch(x,q,($('searchScope')||{}).value||'all'); });
   }
-  es.sort(function(a,b){ var fa=isFav(a.entry)?0:1, fb=isFav(b.entry)?0:1; if(fa!==fb) return fa-fb; return fieldText(a.entry,'Title').localeCompare(fieldText(b.entry,'Title'),'zh'); });
+  // 按标题首字母排（A–Z，# 最后），同字母内按标题拼音排；
+  // 收藏不再置顶（A–Z 是条目页的主顺序，收藏用分组页的 ★ 收藏看）。
+  es.sort(function(a,b){
+    var ia=titleInitial(fieldText(a.entry,'Title')), ib=titleInitial(fieldText(b.entry,'Title'));
+    var ra=initialRank(ia), rb=initialRank(ib);
+    if(ra!==rb) return ra-rb;
+    return fieldText(a.entry,'Title').localeCompare(fieldText(b.entry,'Title'),'zh');
+  });
   return es;
 }
 function renderEntries(){
@@ -2870,9 +2972,40 @@ function renderEntries(){
   var rb=$('recycleBar'); if(rb) rb.classList.toggle('hidden',!(currentFilter==='recycle'&&es.length>0));
   $('emptyState').classList.toggle('hidden',es.length>0);
   $('emptyText').textContent = (batchMode&&batchQuery)?'没有账号用这个值，换个值查查看':(currentFilter==='fav'?'还没有收藏，点条目上的 ☆ 就能收藏常用账号':(currentFilter==='recycle'?'回收站是空的，删掉的账号会先到这里，还能恢复':'这里还没有账号'));
-  // 批量模式下：全部账号都在同一个单列列表里（状态栏下方、操作面板上方），
-  // 选中只打勾+绿框高亮，位置不动、不重排；退出批量恢复原有两列网格。
+  // 条目页顶：组名 + 数量
+  var et=$('entriesTitle'); if(et) et.textContent=entriesTitleText();
+  var ec=$('entriesCount'); if(ec) ec.textContent=es.length+' 个';
+  // 按标题首字母分段（A–Z，# 最后），每段一个标题行；右侧 A–Z 索引点字母跳到那一段
+  var sections=[], map={};
   es.forEach(function(x){
+    var L=titleInitial(fieldText(x.entry,'Title'));
+    if(!map[L]){ map[L]={letter:L, items:[]}; sections.push(map[L]); }
+    map[L].items.push(x);
+  });
+  sections.sort(function(a,b){ return initialRank(a.letter)-initialRank(b.letter); });
+  sections.forEach(function(sec){
+    var h=document.createElement('div'); h.className='alpha-head'; h.id='alpha-'+sec.letter; h.textContent=sec.letter;
+    list.appendChild(h);
+    sec.items.forEach(function(x){ list.appendChild(buildEntryCard(x)); });
+  });
+  renderAlphaIndex(sections);
+}
+function renderAlphaIndex(sections){
+  var idx=$('alphaIndex'); if(!idx) return;
+  var col=document.querySelector('#vaultEntriesPage .entry-col');
+  idx.innerHTML='';
+  if(!sections.length){ idx.classList.add('hidden'); if(col) col.classList.remove('has-alpha'); return; }
+  idx.classList.remove('hidden');
+  if(col) col.classList.add('has-alpha');
+  sections.forEach(function(sec){
+    var b=document.createElement('button'); b.type='button'; b.className='alpha-idx-btn'; b.textContent=sec.letter;
+    b.addEventListener('click',function(){ var h=$('alpha-'+sec.letter); if(h) h.scrollIntoView({block:'start'}); });
+    idx.appendChild(b);
+  });
+}
+/* 单张密码卡片（条目页里按首字母分段后，每段里一张一张贴）。
+   批量模式下：全部账号都在同一个单列列表里，选中只打勾+绿框高亮，位置不动、不重排；退出批量恢复原有两列网格。 */
+function buildEntryCard(x){
     var en=x.entry, title=fieldText(en,'Title')||'(无标题)', user=fieldText(en,'UserName'), pwd=fieldText(en,'Password');
     var fav=isFav(en);
     var card=document.createElement('div'); card.className='entry-card'+(batchMode?' batch-on':'')+(batchMode&&selectedBatch.has(en)?' batch-selected':''); card.setAttribute('role','button'); card.setAttribute('tabindex','0');
@@ -2911,8 +3044,7 @@ function renderEntries(){
       card.onclick=function(){ openDetail(en); };
     }
     card.onkeydown=function(ev){ if(ev.key==='Enter'){ if(batchMode){ selectedBatch.has(en)?selectedBatch.delete(en):selectedBatch.add(en); renderEntries(); updateBatchBar(); } else openDetail(en); } };
-    list.appendChild(card);
-  });
+    return card;
 }
 
 
@@ -3504,7 +3636,7 @@ $('btnSaveEntry').addEventListener('click',function(){
   try{ en.update(); }catch(e){}
   try{ db.update(); }catch(e){}
   var autoAdded=autoAddContactsFromEntry(en);
-  markDirty(); closeOverlay('editorOverlay'); renderAll();
+  markDirty(); closeOverlay('editorOverlay'); renderAll(); renderAuth();
   toast(isNew?'已添加':'已保存');
 });
 
@@ -4081,3 +4213,4 @@ window.addEventListener('orientationchange',fitRootWidth);
 <!-- recent-20261127 -->
 <!-- savecopy-20261127 -->
 <!-- totp2-20261127 -->
+<!-- vault2-20261127 -->
