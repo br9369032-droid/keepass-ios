@@ -18,6 +18,7 @@
 <title>KeePass 网页版 — 本地解密的密码库</title>
 <script src="argon2-bundled.min.js"></script>
 <script src="kdbxweb.min.js"></script>
+<script src="jsQR.min.js"></script>
 <style>
 :root{
   --bg:#f6f7f5; --bg2:#eef0ed; --surface:#ffffff; --surface2:#f2f4f1; --surface3:#e8ece8;
@@ -333,6 +334,9 @@ input[type=range]{width:100%;accent-color:var(--accent);min-height:36px}
 .auth-left{font-size:13px;color:var(--muted);font-weight:600}
 .auth-bar{height:4px;background:var(--line);border-radius:99px;margin-top:10px;overflow:hidden}
 .auth-bar i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width 1s linear}
+.auth-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.auth-del{margin-left:auto;border:none;background:none;font-size:18px;cursor:pointer;padding:4px 2px;color:var(--muted)}
+#scanVideo{width:100%;border-radius:12px;background:#000;max-height:60vh}
 .overlay{position:fixed;inset:0;width:var(--winw,100%);height:100vh;height:100dvh;background:rgba(8,14,10,.55);backdrop-filter:blur(3px);z-index:60;display:none;align-items:flex-end;justify-content:center}
 @media(min-width:700px){.overlay{align-items:center;padding:20px}}
 .overlay.open{display:flex}
@@ -669,8 +673,15 @@ body.batch-mode .vault-layout{grid-template-columns:1fr}
     <div class="big-card">
       <h3>验证器</h3>
       <p class="sub">这里是开了 2FA 的账号，验证码每 30 秒换一次，点一下就复制。2FA 密钥存在 .kdbx 文件的 otp 字段里，跟着文件走，坚果云同步就是文件同步。</p>
+      <div class="auth-actions">
+        <button class="btn btn-primary" id="btnAuthScan" type="button">📷 扫码新增</button>
+        <button class="btn" id="btnAuthAddLink" type="button">🔗 粘贴链接新增</button>
+        <button class="btn" id="btnAuthExport" type="button">⬆ 导出备份</button>
+        <button class="btn" id="btnAuthImport" type="button">⬇ 导入备份</button>
+      </div>
+      <input type="file" id="authImportFile" accept=".txt,text/plain" class="hidden">
       <div id="authList"></div>
-      <div class="empty hidden" id="authEmpty"><span class="big" aria-hidden="true">🔐</span><span>还没有设置 2FA 的账号</span><br><span class="hint">在账号编辑里找到「2FA 验证码」，粘贴网站给的密钥或 otpauth 链接，保存后这里就会显示验证码。</span></div>
+      <div class="empty hidden" id="authEmpty"><span class="big" aria-hidden="true">🔐</span><span>还没有设置 2FA 的账号</span><br><span class="hint">点上面「扫码新增」扫网站给的 2FA 二维码，或者「粘贴链接新增」粘贴网站给的密钥，保存后这里就会显示验证码。</span></div>
     </div>
   </section>
 
@@ -756,7 +767,7 @@ body.batch-mode .vault-layout{grid-template-columns:1fr}
     <div class="big-card">
       <h3>关于这个库</h3>
       <p class="sub" style="margin-bottom:0">标准 KeePass .kdbx 格式，可继续用 KeePassXC（Windows）、Strongbox / KeePassium（iOS）打开。收藏会以标签形式写进库文件，换客户端也不会丢。</p>
-      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：savecopy-20261127</p>
+      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：totp2-20261127</p>
     </div>
   </section>
 
@@ -854,6 +865,30 @@ body.batch-mode .vault-layout{grid-template-columns:1fr}
 </div>
 
 <div class="toast" id="toast" role="status"></div>
+
+<!-- SCAN: 扫码新增 2FA -->
+<div class="overlay" id="scanOverlay">
+  <div class="sheet" role="dialog" aria-modal="true" aria-label="扫码新增 2FA">
+    <div class="sheet-grab"></div>
+    <div class="sheet-head"><div class="tt"><b>扫码新增 2FA</b><span>把网站上的 2FA 二维码放进框里，扫到之后自动建一个条目，名字从二维码里带的名字来，建完能改。</span></div><button class="x" onclick="stopQrScan();closeOverlay('scanOverlay')" aria-label="关闭">✕</button></div>
+    <video id="scanVideo" playsinline muted></video>
+    <canvas id="scanCanvas" class="hidden"></canvas>
+    <div class="error" id="scanError"></div>
+    <div class="sheet-foot"><button class="btn" onclick="stopQrScan();closeOverlay('scanOverlay')">取消</button></div>
+  </div>
+</div>
+
+<!-- AUTH ADD: 粘贴链接新增 2FA -->
+<div class="overlay" id="authAddOverlay">
+  <div class="sheet" role="dialog" aria-modal="true" aria-label="粘贴链接新增 2FA">
+    <div class="sheet-grab"></div>
+    <div class="sheet-head"><div class="tt"><b>粘贴链接新增 2FA</b><span>网站给了 otpauth 链接或一串 base32 密钥就贴在这里；只有二维码的话，用上面「扫码新增」。</span></div><button class="x" onclick="closeOverlay('authAddOverlay')" aria-label="关闭">✕</button></div>
+    <div class="field"><label for="authAddName">名称（可以改，不填就用链接里带的名字）</label><input id="authAddName" placeholder="例如 GitHub" autocomplete="off"></div>
+    <div class="field"><label for="authAddLink">otpauth 链接或 base32 密钥</label><input id="authAddLink" placeholder="otpauth://totp/… 或 JBSWY3DP…" autocomplete="off" spellcheck="false"></div>
+    <div class="error" id="authAddError"></div>
+    <div class="sheet-foot"><button class="btn" onclick="closeOverlay('authAddOverlay')">取消</button><button class="btn btn-primary" id="btnAuthAddSave" type="button">保存</button></div>
+  </div>
+</div>
 
 <script>
 var lib = window.KdbxWeb || window.kdbxweb || null;
@@ -2114,9 +2149,10 @@ function renderAuth(){
     var user=fieldText(en,'UserName')||'';
     var div=document.createElement('div');
     div.className='auth-item';
-    div.innerHTML='<div class="auth-meta"><b></b><span></span></div><div class="auth-code-row"><span class="auth-code">••••••</span><span class="auth-left"></span></div><div class="auth-bar"><i></i></div>';
+    div.innerHTML='<div class="auth-meta"><b></b><span></span></div><div class="auth-code-row"><span class="auth-code">••••••</span><span class="auth-left"></span><button class="auth-del" type="button" title="删除这个 2FA">🗑</button></div><div class="auth-bar"><i></i></div>';
     div.querySelector('.auth-meta b').textContent=title;
     div.querySelector('.auth-meta span').textContent=user;
+    div.querySelector('.auth-del').addEventListener('click', function(ev){ ev.stopPropagation(); deleteAuthEntry(en); });
     div._entry=en;
     div.addEventListener('click', function(){
       var code=div.querySelector('.auth-code').getAttribute('data-code');
@@ -2126,6 +2162,163 @@ function renderAuth(){
   });
   totpTick();
 }
+/* ---------- 2FA 独立条目：扫码/粘贴链接新增、导入/导出备份、删除 ---------- */
+/* 2FA 可以独立成条目（只有标题 + otp，没有账号密码），也可以绑在密码条上（编辑器里的 2FA 字段）。
+   独立条目一样存在 .kdbx 里，走坚果云同步；验证器页只列有 otp 的条目，所以独立条目天然就显示在这里。
+   备份就是所有 2FA 条目的 otpauth 链接（一行一段的文本文件），链接能重新画成二维码，也能直接贴进别的验证器 App。 */
+function totpTitleFromParsed(p){
+  var label='';
+  if(p.issuer&&p.account) label=p.issuer+':'+p.account;
+  else label=p.account||p.issuer||'';
+  return label.trim();
+}
+function uniqueTotpTitle(base){
+  base=(base||'').trim()||'2FA 验证码';
+  var taken={};
+  allEntries().forEach(function(x){ taken[fieldText(x.entry,'Title').trim().toLowerCase()]=1; });
+  if(!taken[base.toLowerCase()]) return base;
+  var i=2;
+  while(taken[(base+' '+i).toLowerCase()]) i++;
+  return base+' '+i;
+}
+function createTotpEntry(title, totpNorm){
+  var g=allGroups()[0]; if(!g) return null;
+  var en=db.createEntry(g.group);
+  setField(en,'Title',title);
+  setField(en,'otp',totpNorm,true);
+  markDirty();
+  return en;
+}
+/* 从一段 otpauth 链接或 base32 密钥新增一个 2FA 条目（扫码、粘贴链接、导入都走这里）。
+   名字从链接里带的名字来，没有就用默认；重名自动加数字后缀。不渲染，调用方渲染一次。 */
+function addTotpFromUri(uri){
+  var p=parseTotpUri(uri);
+  if(!p) return {ok:false, error:'2FA 密钥格式不对：粘贴网站给的密钥（字母数字串）或 otpauth:// 链接。'};
+  var norm=normalizeTotp(uri);
+  if(!norm) return {ok:false, error:'2FA 密钥格式不对。'};
+  var title=uniqueTotpTitle(totpTitleFromParsed(p));
+  var en=createTotpEntry(title, norm);
+  if(!en) return {ok:false, error:'没有可用分组，请先新建分组。'};
+  return {ok:true, title:title};
+}
+function deleteAuthEntry(en){
+  var title=fieldText(en,'Title')||'未命名';
+  askConfirm('删除 2FA','确定删除“'+title+'”的 2FA 吗？会先移到回收站，还能恢复。记得点保存才写进文件。','移到回收站',function(){
+    currentEntry=en; doDeleteEntry(); renderAuth();
+  });
+}
+function exportTotpBackup(){
+  var items=totpEntries();
+  if(!items.length){ toast('还没有设置 2FA 的账号'); return; }
+  var lines=items.map(function(x){ return normalizeTotp(totpRawForEntry(x.entry)); }).filter(Boolean);
+  if(!lines.length){ toast('还没有设置 2FA 的账号'); return; }
+  var text=lines.join('\n')+'\n';
+  var filename='2fa-backup.txt';
+  if(getEnv()==='native'){
+    shareFileNative(filename, new TextEncoder().encode(text).buffer).then(function(st){
+      if(st==='ok') toast('已分享 2FA 备份（'+lines.length+' 个），请收好，里面是密钥');
+      else if(st==='cancelled') toast('已取消分享');
+      else toast('分享不可用，请检查 App 权限或重新打开');
+    });
+    return;
+  }
+  var blob=new Blob([text],{type:'text/plain'});
+  var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(a.href)},2000);
+  toast('已导出 2FA 备份（'+lines.length+' 个），请收好，里面是密钥');
+}
+function importTotpBackup(file){
+  if(!file) return;
+  var reader=new FileReader();
+  reader.onload=function(){
+    var text=String(reader.result||'');
+    var lines=text.split(/\r?\n/);
+    var added=0, skipped=0;
+    lines.forEach(function(line){
+      var s=line.trim(); if(!s||s.charAt(0)==='#') return;
+      var r=addTotpFromUri(s);
+      if(r.ok) added++; else skipped++;
+    });
+    renderAll(); renderAuth();
+    if(added) toast('已导入 '+added+' 个 2FA'+(skipped?'，跳过 '+skipped+' 行格式不对的':''));
+    else toast('没有导入成功，文件里没有能认的 otpauth 链接或密钥。');
+  };
+  reader.readAsText(file);
+}
+/* 扫码新增：打开相机，jsQR 每帧解码，扫到 otpauth 链接就自动建一个条目（名字从链接里带的名字来，建完能改）。 */
+var qrScanStream=null, qrScanRaf=0, qrScanActive=false;
+function startQrScan(){
+  openOverlay('scanOverlay');
+  $('scanError').textContent='';
+  if(typeof jsQR==='undefined'){ $('scanError').textContent='扫码库没加载出来，请检查网络后刷新页面。'; return; }
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ $('scanError').textContent='这个浏览器不支持相机扫码，请用粘贴链接新增。'; return; }
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}).then(function(stream){
+    qrScanStream=stream;
+    var video=$('scanVideo');
+    video.srcObject=stream;
+    video.play().catch(function(){});
+    qrScanActive=true;
+    qrScanLoop();
+  }).catch(function(e){
+    $('scanError').textContent='打不开相机：'+(e&&e.name==='NotAllowedError'?'没给相机权限，请在系统设置里允许 KeePass 使用相机。':'请检查相机是否被占用。');
+  });
+}
+function qrScanLoop(){
+  if(!qrScanActive) return;
+  if(!$('scanOverlay').classList.contains('open')){ stopQrScan(); return; }
+  var video=$('scanVideo');
+  if(video.readyState===video.HAVE_ENOUGH_DATA){
+    var canvas=$('scanCanvas');
+    var w=video.videoWidth, h=video.videoHeight;
+    if(w&&h){
+      canvas.width=w; canvas.height=h;
+      var ctx=canvas.getContext('2d');
+      ctx.drawImage(video,0,0,w,h);
+      var img=ctx.getImageData(0,0,w,h);
+      try{
+        var code=jsQR(img.data,w,h);
+        if(code&&code.data){
+          var r=addTotpFromUri(code.data.trim());
+          if(r.ok){
+            stopQrScan(); closeOverlay('scanOverlay');
+            renderAll(); renderAuth();
+            toast('已添加 2FA：'+r.title);
+            return;
+          }
+          $('scanError').textContent='这个二维码不是 2FA 的，请扫网站给的 2FA 二维码。';
+        }
+      }catch(e){}
+    }
+  }
+  qrScanRaf=requestAnimationFrame(qrScanLoop);
+}
+function stopQrScan(){
+  qrScanActive=false;
+  if(qrScanRaf) cancelAnimationFrame(qrScanRaf); qrScanRaf=0;
+  if(qrScanStream){ qrScanStream.getTracks().forEach(function(t){ t.stop(); }); qrScanStream=null; }
+  var video=$('scanVideo'); if(video) video.srcObject=null;
+}
+$('btnAuthScan').addEventListener('click', startQrScan);
+$('btnAuthAddLink').addEventListener('click', function(){ $('authAddName').value=''; $('authAddLink').value=''; $('authAddError').textContent=''; openOverlay('authAddOverlay'); });
+$('btnAuthAddSave').addEventListener('click', function(){
+  var name=($('authAddName').value||'').trim();
+  var link=($('authAddLink').value||'').trim();
+  if(!link){ $('authAddError').textContent='请粘贴 otpauth 链接或 base32 密钥。'; return; }
+  var p=parseTotpUri(link);
+  if(!p){ $('authAddError').textContent='2FA 密钥格式不对：粘贴网站给的密钥（字母数字串）或 otpauth:// 链接。'; return; }
+  var norm=normalizeTotp(link);
+  if(!norm){ $('authAddError').textContent='2FA 密钥格式不对。'; return; }
+  var title=name?uniqueTotpTitle(name):uniqueTotpTitle(totpTitleFromParsed(p));
+  var en=createTotpEntry(title, norm);
+  if(!en){ $('authAddError').textContent='没有可用分组，请先新建分组。'; return; }
+  renderAll(); renderAuth();
+  closeOverlay('authAddOverlay');
+  toast('已添加 2FA：'+title);
+});
+$('btnAuthExport').addEventListener('click', exportTotpBackup);
+$('btnAuthImport').addEventListener('click', function(){ $('authImportFile').click(); });
+$('authImportFile').addEventListener('change', function(){ if(this.files[0]){ importTotpBackup(this.files[0]); this.value=''; } });
 function entryTags(entry){
   try{ var t=entry.tags; if(!t) return []; if(Array.isArray(t)) return t.slice(); return String(t).split(/[;,]/).map(function(x){return x.trim()}).filter(Boolean); }catch(e){return []}
 }
@@ -3887,3 +4080,4 @@ window.addEventListener('orientationchange',fitRootWidth);
 <!-- totp-20261127 -->
 <!-- recent-20261127 -->
 <!-- savecopy-20261127 -->
+<!-- totp2-20261127 -->

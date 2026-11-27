@@ -26,6 +26,8 @@
 	<true/>
 	<key>NSFaceIDUsageDescription</key>
 	<string>使用面容 ID 解锁你的密码库，不用每次输入主密码。主密码只存在本机钥匙串里，不会上传。</string>
+	<key>NSCameraUsageDescription</key>
+	<string>扫描网站给的 2FA 二维码，直接把验证码加进密码库，不用手动输入密钥。</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
