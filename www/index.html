@@ -781,7 +781,7 @@ body.batch-mode .entry-list{grid-template-columns:1fr}
     <div class="big-card">
       <h3>关于这个库</h3>
       <p class="sub" style="margin-bottom:0">标准 KeePass .kdbx 格式，可继续用 KeePassXC（Windows）、Strongbox / KeePassium（iOS）打开。收藏会以标签形式写进库文件，换客户端也不会丢。</p>
-      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：delgroup-20261127</p>
+      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：contacts-20261127</p>
     </div>
   </section>
 
@@ -1621,27 +1621,22 @@ function findContactUsage(v){
   });
   return used;
 }
-/* 编辑常用手机号/邮箱：点 ✎ 改成输入框，保存时校验；如果旧值正被账号用着，
-   顺手把那些账号里的旧值也改成新值（只改非密码字段），保持一致，并标未保存。 */
+/* 编辑常用手机号/邮箱：点 ✎ 改成输入框，保存时校验。
+   规则：只有没有任何密码条在用这个值时才能改（和删除同一条规则）。
+   改常用只改常用列表本身，绝不同步改密码条里的值——密码条里的手机号/邮箱是那条账号自己的，改常用不该动它。 */
 function applyContactEdit(oldV,newV,kind){
   newV=(newV||'').trim();
   if(!newV){ toast('不能改成空的'); return false; }
   if(newV===oldV) return true;
+  // 防线：在用的值不许改（入口处已拦，这里再拦一次，免得以后别的入口绕过）
+  if(findContactUsage(oldV).length){
+    toast('这个'+(kind==='phones'?'手机号':'邮箱')+'正在被账号使用，不能修改');
+    return false;
+  }
   if(contacts[kind].indexOf(newV)>-1){ toast('这个'+(kind==='phones'?'手机号':'邮箱')+'已经在常用里了'); return false; }
-  var updated=0;
-  allEntries().forEach(function(x){
-    var changed=false;
-    entryFieldNames(x.entry).forEach(function(n){
-      if(n==='Title'||n==='Password'||n==='_favorite') return;
-      if(isPasswordField(n)) return;
-      if(fieldText(x.entry,n)===oldV){ setField(x.entry,n,newV,false); changed=true; }
-    });
-    if(changed) updated++;
-  });
   contacts[kind]=contacts[kind].map(function(x){ return x===oldV?newV:x; });
   saveLS(CONTACT_KEY,contacts); syncTplContactsToDb();
-  if(updated>0){ markDirty(); toast('已改成 '+newV+'，'+updated+' 个账号里的旧值也一起改了，记得点保存'); }
-  else toast('已改成 '+newV);
+  toast('已改成 '+newV);
   renderContacts();
   return true;
 }
@@ -1667,6 +1662,17 @@ function renderContacts(){
     };
     var eb=document.createElement('button'); eb.className='x-btn'; eb.textContent='✎'; eb.title='编辑'; eb.setAttribute('aria-label','编辑 '+v);
     eb.onclick=function(){
+      // 这行可能已被重绘 detach（比如正编辑着这一行、又点了另一行的按钮，点外面取消时先重绘了列表），
+      // detach 的按钮再点不能进编辑态，不然编辑框会挂在一个看不见的行上。
+      if(!div.isConnected) return;
+      // 常用里的手机号/邮箱，只有没有任何密码条在用它时才能改（和删除同一条规则）；
+      // 在用就直接提示，不进编辑态。
+      var used=findContactUsage(v);
+      if(used.length){
+        var names=used.slice(0,3).join('、');
+        toast('这个'+(kind==='phones'?'手机号':'邮箱')+'正在被 '+used.length+' 个账号使用（'+names+(used.length>3?' 等':'')+'），不能修改');
+        return;
+      }
       // 进入编辑态：值变成输入框，✎ 变成 ✓ 保存，✕ 变成取消
       meta.innerHTML='';
       var inp=document.createElement('input');
@@ -1675,14 +1681,22 @@ function renderContacts(){
       meta.appendChild(inp); inp.focus(); inp.select();
       eb.textContent='✓'; eb.title='保存'; eb.setAttribute('aria-label','保存');
       b.textContent='✕'; b.title='取消'; b.setAttribute('aria-label','取消编辑');
+      // 点这一行以外的地方就取消编辑（不然点别处只收键盘、编辑态还留在那儿，看着像卡住）。
+      // 用 pointerdown + 捕获阶段：点 ✓ 保存时指针先落在行内，不会误取消；点行外时在 click 之前就取消。
+      function cancelOnOutside(e){
+        if(!div.contains(e.target)){ document.removeEventListener('pointerdown',cancelOnOutside,true); renderContacts(); }
+      }
+      document.addEventListener('pointerdown',cancelOnOutside,true);
+      function stopOutside(){ document.removeEventListener('pointerdown',cancelOnOutside,true); }
       eb.onclick=function(){
+        stopOutside();
         if(applyContactEdit(v,inp.value,kind)){ /* renderContacts 已重绘 */ }
-        else { inp.focus(); }
+        else { inp.focus(); document.addEventListener('pointerdown',cancelOnOutside,true); }
       };
-      b.onclick=function(){ renderContacts(); };
+      b.onclick=function(){ stopOutside(); renderContacts(); };
       inp.addEventListener('keydown',function(e){
         if(e.key==='Enter'){ e.preventDefault(); eb.onclick(); }
-        if(e.key==='Escape'){ renderContacts(); }
+        if(e.key==='Escape'){ stopOutside(); renderContacts(); }
       });
     };
     div.appendChild(eb);
@@ -4338,4 +4352,4 @@ window.addEventListener('orientationchange',fitRootWidth);
 <!-- recent-20261127 -->
 <!-- savecopy-20261127 -->
 <!-- totp2-20261127 -->
-<!-- delgroup-20261127 -->
+<!-- contacts-20261127 -->
