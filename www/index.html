@@ -250,6 +250,11 @@ input[type=range]{width:100%;accent-color:var(--accent);min-height:36px}
 .g-chip .go{color:var(--faint);font-size:15px;margin-left:2px}
 .g-chip.active{border-color:var(--accent);color:var(--accent-strong);background:var(--accent-soft)}
 .g-chip.add{border:1.5px dashed var(--line);color:var(--muted);background:transparent;justify-content:center}
+/* 分组行：左边是进分组的按钮，右边是删分组的 🗑（只有自己建的子分组才有）；整行是一个 flex 容器 */
+.g-row{display:flex;align-items:stretch;gap:4px}
+.g-row .g-chip{flex:1;min-width:0;width:auto}
+.g-del{border:1px solid transparent;background:transparent;border-radius:12px;width:44px;min-height:48px;font-size:17px;color:var(--muted);cursor:pointer;flex-shrink:0}
+.g-del:active{background:var(--danger-soft);color:var(--danger)}
 /* 条目页顶：返回 + 组名 + 数量 */
 .entries-head{display:flex;align-items:center;gap:10px;padding:2px 0 10px;flex-shrink:0}
 .entries-head #btnVaultBack{font-size:15px;font-weight:700;flex-shrink:0}
@@ -776,7 +781,7 @@ body.batch-mode .entry-list{grid-template-columns:1fr}
     <div class="big-card">
       <h3>关于这个库</h3>
       <p class="sub" style="margin-bottom:0">标准 KeePass .kdbx 格式，可继续用 KeePassXC（Windows）、Strongbox / KeePassium（iOS）打开。收藏会以标签形式写进库文件，换客户端也不会丢。</p>
-      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：auth3-20261127</p>
+      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：delgroup-20261127</p>
     </div>
   </section>
 
@@ -809,7 +814,7 @@ body.batch-mode .entry-list{grid-template-columns:1fr}
       <div id="fFields"></div>
       <button class="btn btn-sm" type="button" id="btnAddField" style="margin-top:4px">＋ 添加字段</button>
       <div class="field"><label for="fGroup">分组</label><select id="fGroup"></select></div>
-      <div class="field"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="fFav" style="width:19px;height:19px;accent-color:var(--gold)"> 收藏这个账号（置顶显示）</label></div>
+      <div class="field"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="fFav" style="width:19px;height:19px;accent-color:var(--gold)"> 收藏这个账号（在 ★ 收藏里查看）</label></div>
     </div>
     <div class="sheet-foot"><button class="btn btn-danger-ghost hidden" id="btnDeleteEntry2" type="button">删除</button><button class="btn" onclick="closeOverlay('editorOverlay')">取消</button><button class="btn btn-primary" id="btnSaveEntry">保存</button></div>
   </div>
@@ -2700,7 +2705,7 @@ function refreshFromDav(btn){
   var b=btn||$('btnDavRefresh'); if(!b) return;
   var old=b.textContent;
   function restore(){ b.textContent=old; b.disabled=false; }
-  function doRefresh(){
+  function doRefresh(force){
     b.textContent='正在刷新…'; b.disabled=true;
     davFetch(webdav,'GET',null).then(function(resp){
       if(davIsProxyError(resp)){ toast('代理地址出问题了：Cloudflare 上的 keepass-proxy 这个 Worker 返回了一个网页报错，刷新失败，你现在的库没动。'); restore(); return null; }
@@ -2711,7 +2716,9 @@ function refreshFromDav(btn){
       return resp.arrayBuffer();
     }).then(function(buf){
       if(!buf) return;
-      if(davLastBytes&&buffersEqual(buf,davLastBytes)){ toast('已经是最新版本'); restore(); return; }
+      // 丢弃本地修改时（force），就算远程没变也要重载——不然本地改过的库还在内存里，丢弃根本没发生。
+      // 之前就是这里直接 return，导致“丢弃并刷新”点了跟没点一样，页面还是改过的样子。
+      if(!force&&davLastBytes&&buffersEqual(buf,davLastBytes)){ toast('已经是最新版本'); restore(); return; }
       // 远程变了：用当前主密码（+密钥文件）解密新文件，解不开就保持原样不动
       if(!currentMasterPwd){ toast('刷新失败：当前主密码不在内存里，请锁定后重新打开再刷新。'); restore(); return; }
       lib.Kdbx.load(buf,getCreds(currentMasterPwd,currentKeyBuf)).then(function(loaded){
@@ -2725,7 +2732,7 @@ function refreshFromDav(btn){
           else { currentGroupUuid=keepGroup; currentFilter=keepFilter; }
         }catch(e){ currentGroupUuid=null; currentFilter='all'; }
         syncFilterChips(); renderAll(); updateDavUI();
-        toast('已刷新到最新版本'); restore();
+        toast(force?'已丢弃本地修改，回到坚果云上的版本':'已刷新到最新版本'); restore();
       }).catch(function(){
         toast('刷新失败：新文件解不开（主密码或密钥文件不对，或文件已损坏），你现在的库没动。'); restore();
       });
@@ -2737,7 +2744,7 @@ function refreshFromDav(btn){
     var saveBtn=$('refreshChoiceSave'), discBtn=$('refreshChoiceDiscard'), cancelBtn=$('refreshChoiceCancel');
     function cleanup(){ try{ saveBtn.onclick=null; discBtn.onclick=null; cancelBtn.onclick=null; }catch(e){} }
     saveBtn.onclick=function(){ cleanup(); closeOverlay('refreshChoiceOverlay'); saveToDav($('btnHomeDavSave')||$('btnDavSave')).then(function(){ doRefresh(); }).catch(function(e){ if(e&&e.message==='conflict-armed'){ /* 冲突已提示过，不刷新 */ } }); };
-    discBtn.onclick=function(){ cleanup(); closeOverlay('refreshChoiceOverlay'); dirty=false; $('dirtyDot').style.display='none'; doRefresh(); };
+    discBtn.onclick=function(){ cleanup(); closeOverlay('refreshChoiceOverlay'); dirty=false; $('dirtyDot').style.display='none'; doRefresh(true); };
     cancelBtn.onclick=function(){ cleanup(); closeOverlay('refreshChoiceOverlay'); };
     return;
   }
@@ -2899,11 +2906,18 @@ function syncFilterChips(){
 }
 function renderGroups(){
   var gs=allGroups(), list=$('groupList'); list.innerHTML='';
-  function mk(label,count,uuid,active,onclick){
+  function mk(label,count,uuid,active,onclick,onDelete){
+    var row=document.createElement('div'); row.className='g-row';
     var b=document.createElement('button'); b.className='g-chip'+(active?' active':'');
     b.innerHTML='<span>'+escapeHtml(label)+'</span><span class="n">'+count+'</span><span class="go">›</span>';
     b.onclick=onclick||function(){ clearSearch(); currentGroupUuid=uuid; currentFilter='all'; syncFilterChips(); renderGroups(); goToEntries(); };
-    list.appendChild(b);
+    row.appendChild(b);
+    if(onDelete){
+      var del=document.createElement('button'); del.className='g-del'; del.type='button'; del.textContent='🗑'; del.setAttribute('aria-label','删除分组 '+label);
+      del.onclick=function(ev){ ev.stopPropagation(); onDelete(); };
+      row.appendChild(del);
+    }
+    list.appendChild(row);
   }
   // 全部/收藏/回收站的数量都不含纯 2FA 条目（纯 2FA 只在验证器页，不进密码库）；
   // 点一行就进条目页看这个分组（同时清掉搜索，搜索是全局的、和分组不叠加）
@@ -2922,7 +2936,9 @@ function renderGroups(){
   });
   gs.forEach(function(gw){
     var c=(gw.group.entries||[]).filter(function(en){ return !isTotpOnlyEntry(en); }).length;
-    mk(gw.name,c,gw.uuid,currentGroupUuid===gw.uuid);
+    // 只有子分组能删（depth>0）；根分组（depth 0，显示为“未命名分组”或库名）是整个库的顶层容器，不能删
+    var canDelete=gw.depth>0;
+    mk(gw.name,c,gw.uuid,currentGroupUuid===gw.uuid,null,canDelete?function(){ askDeleteGroup(gw); }:null);
   });
   var add=document.createElement('button'); add.className='g-chip add'; add.innerHTML='<span>＋ 新分组</span>';
   add.onclick=function(){ $('gName').value=''; openOverlay('groupOverlay'); setTimeout(function(){$('gName').focus()},80); };
@@ -2935,6 +2951,47 @@ $('btnCreateGroup').addEventListener('click',function(){
   try{ var parent=db.getDefaultGroup(); var ng=db.createGroup(parent,name); closeOverlay('groupOverlay'); markDirty(); renderGroups(); toast('分组「'+name+'」已创建'); }
   catch(e){ toast('创建分组失败：'+e.message); }
 });
+/* 删除分组：分组里的账号先全部移到回收站（还能恢复），再删掉分组本身。
+   只能删子分组（depth>0）；根分组（depth 0）是整个库的顶层容器，不能删。
+   一定要两次确认：第一次告诉你有几个账号、会移到回收站；第二次最后警告一次。 */
+function askDeleteGroup(gw){
+  var entries=[];
+  function collect(g){
+    (g.entries||[]).forEach(function(en){ entries.push(en); });
+    (g.groups||[]).forEach(collect);
+  }
+  collect(gw.group);
+  var n=entries.length;
+  var name=gw.name||'未命名分组';
+  askConfirm('删除分组','确定删除分组「'+name+'」吗？里面有 '+n+' 个账号，会一起移到回收站，还能在回收站里恢复。删完记得点保存才写进文件。','继续删除',function(){
+    askConfirm('最后确认','真的要删除分组「'+name+'」吗？分组本身会被删掉，里面的 '+n+' 个账号会移到回收站。删完记得点保存才写进文件。','确认删除',function(){
+      doDeleteGroup(gw, entries);
+    });
+  });
+}
+function doDeleteGroup(gw, entries){
+  var name=gw.name||'未命名分组';
+  var n=(entries||[]).length;
+  var rb=ensureRecycleBinGroup();
+  if(!rb){ toast('删分组失败：建不出回收站，请先导出一份本地备份再试'); return; }
+  (entries||[]).forEach(function(en){
+    selectedBatch.delete(en);
+    moveEntryToGroup(en,rb);
+  });
+  // 删掉分组本身（含子分组）；删不掉就手动从父分组里摘掉
+  try{ db.remove(gw.group); }catch(e){
+    try{
+      var parent=null;
+      allGroups().forEach(function(g){ if((g.group.groups||[]).indexOf(gw.group)>-1) parent=g.group; });
+      if(parent){ var i=(parent.groups||[]).indexOf(gw.group); if(i>-1) parent.groups.splice(i,1); }
+    }catch(e2){}
+  }
+  // 如果当前正看着这个分组，回到全部（分组页）
+  if(currentGroupUuid===gw.uuid){ currentGroupUuid=null; currentFilter='all'; goToGroups(); }
+  currentEntry=null; editingEntry=null;
+  markDirty(); renderAll();
+  toast('已删除分组「'+name+'」，'+n+' 个账号已移到回收站，记得点保存');
+}
 /* 搜索范围下拉：固定项（全部/标题/账号/手机号/邮箱/备注/网址）+ 库里现有的自定义字段名（不同模板的都在里面） */
 function populateSearchScope(){
   var sel=$('searchScope'); if(!sel) return;
@@ -3075,7 +3132,7 @@ function buildEntryCard(x){
     var favBtn=document.createElement('button'); favBtn.className='fav-btn'+(fav?' on':''); favBtn.textContent=fav?'★':'☆'; favBtn.setAttribute('aria-label',fav?'取消收藏':'收藏');
     // 回收站里的条目不用收藏（已经是删掉的账号），把 ☆ 藏起来
     if(currentFilter==='recycle') favBtn.style.display='none';
-    favBtn.onclick=function(ev){ ev.stopPropagation(); setFav(en,!fav); try{en.update()}catch(e){} markDirty(); renderAll(); toast(!fav?'已收藏，会置顶显示':'已取消收藏'); };
+    favBtn.onclick=function(ev){ ev.stopPropagation(); setFav(en,!fav); try{en.update()}catch(e){} markDirty(); renderAll(); toast(!fav?'已收藏，可在 ★ 收藏里查看':'已取消收藏'); };
     top.appendChild(favBtn); content.appendChild(top);
     var foot=document.createElement('div'); foot.className='entry-foot';
     var pills='<span class="pill grp">'+escapeHtml(x.group.name)+'</span><span class="sp"></span>';
@@ -3258,7 +3315,7 @@ function openDetail(entry){
   var gw=allGroups().filter(function(g){return (g.group.entries||[]).indexOf(entry)>-1})[0];
   $('detailSub').textContent=gw?gw.name:'';
   var favBtn=$('btnFavDetail'); var fav=isFav(entry); favBtn.textContent=fav?'★':'☆'; favBtn.classList.toggle('on',fav);
-  favBtn.onclick=function(){ setFav(entry,!isFav(entry)); try{entry.update()}catch(e){} markDirty(); openDetail(entry); renderAll(); };
+  favBtn.onclick=function(){ var f=!isFav(entry); setFav(entry,f); try{entry.update()}catch(e){} markDirty(); openDetail(entry); renderAll(); toast(f?'已收藏，可在 ★ 收藏里查看':'已取消收藏'); };
   var h='';
   var names=entryFieldNames(entry);
   var order=[];
@@ -4281,4 +4338,4 @@ window.addEventListener('orientationchange',fitRootWidth);
 <!-- recent-20261127 -->
 <!-- savecopy-20261127 -->
 <!-- totp2-20261127 -->
-<!-- auth3-20261127 -->
+<!-- delgroup-20261127 -->
