@@ -744,7 +744,7 @@ body.batch-mode .entry-list{grid-template-columns:1fr}
     </div>
     <div class="big-card">
       <h3>账号模板</h3>
-      <p class="sub">新建账号时先选模板，表单按模板生成字段。标题、账号、密码是每个模板自动带的，不可删除；其中只有标题是必填项。模板存在密码库文件里，跟着 .kdbx 走，换浏览器、换设备都有。</p>
+      <p class="sub">新建账号时先选模板，表单按模板生成字段。只有标题是每个模板自动带的（必填），不可删除；账号、密码需要时自己加。模板存在密码库文件里，跟着 .kdbx 走，换浏览器、换设备都有。</p>
       <div id="tplList"></div>
       <button class="btn btn-block" id="btnTplAdd" type="button" style="margin-top:10px">＋ 新建模板</button>
     </div>
@@ -775,7 +775,7 @@ body.batch-mode .entry-list{grid-template-columns:1fr}
     <div class="big-card">
       <h3>关于这个库</h3>
       <p class="sub" style="margin-bottom:0">标准 KeePass .kdbx 格式，可继续用 KeePassXC（Windows）、Strongbox / KeePassium（iOS）打开。收藏会以标签形式写进库文件，换客户端也不会丢。</p>
-      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：vault2-20261127</p>
+      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：editor-20261127</p>
     </div>
   </section>
 
@@ -803,18 +803,9 @@ body.batch-mode .entry-list{grid-template-columns:1fr}
     <div class="sheet-grab"></div>
     <div class="sheet-head"><div class="tt"><b id="editorTitle">添加账号</b><span>保存在加密的 .kdbx 文件里</span></div><button class="x" onclick="closeOverlay('editorOverlay')" aria-label="关闭">✕</button></div>
     <div class="sheet-body">
-      <div class="field" id="fTemplateRow"><label for="fTemplateSel">模板</label><select id="fTemplateSel"></select><div class="hint">标题、账号、密码是每个模板自动带的，其中只有标题是必填项；下面按模板生成其他字段。</div></div>
+      <div class="field" id="fTemplateRow"><label for="fTemplateSel">模板</label><select id="fTemplateSel"></select><div class="hint">只有标题是每个模板自动带的（必填）；下面按模板生成其他字段，账号、密码需要时点下面的“＋ 添加字段”加上。</div></div>
       <div class="field"><label for="fTitle">标题 *</label><input id="fTitle" placeholder="例如：微信、GitHub、招商银行"></div>
-      <div class="field"><label for="fUser">账号 / 用户名</label><input id="fUser" placeholder="手机号、邮箱或用户名" autocomplete="off"><select id="fUserPick" class="field-pick"></select></div>
-      <div class="field"><label for="fPass">密码</label>
-        <div style="display:flex;gap:8px"><input id="fPass" type="text" placeholder="密码" autocomplete="new-password" style="flex:1;padding:13px 15px;border-radius:13px;border:1.5px solid var(--line);background:var(--bg);font-family:var(--mono);font-size:16px;min-width:0"><button class="btn btn-sm" type="button" onclick="generateForEditor()">🎲 生成</button></div>
-      </div>
-      <div class="field"><label for="fTotp">2FA 验证码（TOTP）</label>
-        <input id="fTotp" placeholder="粘贴网站给的密钥或 otpauth:// 链接" autocomplete="off">
-        <div class="hint">网站开启两步验证时给的密钥（或 otpauth:// 链接），粘贴在这里。保存后去底部的「验证器」页看验证码。密钥存在 .kdbx 的 otp 字段里，跟着文件走，KeePassXC 这些软件也能认。</div>
-        <div class="hint hidden" id="fTotpPreview">当前验证码：<b id="fTotpCode" style="font-family:var(--mono);font-size:18px"></b> <span id="fTotpLeft"></span></div>
-      </div>
-      <div id="fCustomFields"></div>
+      <div id="fFields"></div>
       <button class="btn btn-sm" type="button" id="btnAddField" style="margin-top:4px">＋ 添加字段</button>
       <div class="field"><label for="fGroup">分组</label><select id="fGroup"></select></div>
       <div class="field"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="fFav" style="width:19px;height:19px;accent-color:var(--gold)"> 收藏这个账号（置顶显示）</label></div>
@@ -827,11 +818,11 @@ body.batch-mode .entry-list{grid-template-columns:1fr}
 <div class="overlay" id="tplEditorOverlay">
   <div class="sheet" role="dialog" aria-modal="true" aria-label="模板编辑">
     <div class="sheet-grab"></div>
-    <div class="sheet-head"><div class="tt"><b id="tplEditorTitle">新建模板</b><span>填好名字和字段后保存；标题、账号、密码每个模板自动带。</span></div><button class="x" onclick="closeOverlay('tplEditorOverlay')" aria-label="关闭">✕</button></div>
+    <div class="sheet-head"><div class="tt"><b id="tplEditorTitle">新建模板</b><span>填好名字和字段后保存；只有标题是每个模板自动带的。</span></div><button class="x" onclick="closeOverlay('tplEditorOverlay')" aria-label="关闭">✕</button></div>
     <div class="sheet-body">
       <div id="tplEditor">
         <div class="field"><label for="tplName">模板名称</label><input id="tplName" placeholder="例如：银行卡、网站账号"></div>
-        <div class="field"><label>自动带的字段（不用再加）</label><div style="background:var(--surface2);border:1.5px solid var(--line);border-radius:13px;padding:12px 14px;font-size:14px;line-height:1.7"><b>标题</b>（文本） · <b>账号</b>（文本） · <b>密码</b>（密码）<br><span style="color:var(--muted);font-size:13px">每个模板自动带这三项，不可删除，其中只有标题是必填项；下面只加其他字段。</span></div></div>
+        <div class="field"><label>自动带的字段（不用再加）</label><div style="background:var(--surface2);border:1.5px solid var(--line);border-radius:13px;padding:12px 14px;font-size:14px;line-height:1.7"><b>标题</b>（文本）<br><span style="color:var(--muted);font-size:13px">每个模板自动带标题，不可删除，标题是必填项；账号、密码需要时在下面加；下面只加其他字段。</span></div></div>
         <div id="tplFields"></div>
         <button class="btn btn-sm" id="btnTplAddField" type="button">＋ 添加字段</button>
       </div>
@@ -1590,7 +1581,7 @@ function saveTplEditor(){
   for(var i=0;i<fields.length;i++){
     if(seen[fields[i].name]){ toast('字段名不能重复：'+fields[i].name); return; }
     seen[fields[i].name]=1;
-    if(['标题','账号','密码','Title','UserName','Password'].indexOf(fields[i].name)>-1){ toast('“标题 / 账号 / 密码”是自动带的，不用再加'); return; }
+    if(['标题','Title'].indexOf(fields[i].name)>-1){ toast('“标题”是自动带的，不用再加'); return; }
   }
   if(editingTplId){ var t=getTemplate(editingTplId); t.name=name; t.fields=fields; }
   else templates.push({id:'tpl-'+Date.now(),name:name,fields:fields});
@@ -1949,7 +1940,6 @@ function generatePassword(targetId){
   return pwd;
 }
 function syncGenLen(v){ onGenControlChange('2'); }
-function generateForEditor(){ var p=makePassword(loadGenSettings()); $('fPass').value=p; }
 applyGenSettingsToPanels(loadGenSettings());
 generatePassword('genOut');
 
@@ -2165,19 +2155,6 @@ function totpTick(){
       if(r){ dCode.textContent=fmt(r.code); dCode.setAttribute('data-code', r.code);
         var dCopy=$('detailTotpCopy'); if(dCopy) dCopy.setAttribute('data-copy', r.code); }
     });
-  }
-  var fPrev=$('fTotpPreview');
-  if(fPrev && !$('fTotpPreview').classList.contains('hidden') && $('editorOverlay').classList.contains('open')){
-    var p=parseTotpUri(($('fTotp').value||'').trim());
-    if(p){
-      var bytes=base32Decode(p.secret);
-      if(bytes&&bytes.length){
-        totpCode(bytes, now, p.digits, p.period, p.algorithm).then(function(code){
-          $('fTotpCode').textContent=fmt(code);
-          $('fTotpLeft').textContent='剩 '+remain+' 秒';
-        });
-      }
-    }
   }
 }
 function startTotpTimer(){
@@ -3200,8 +3177,10 @@ function openDetail(entry){
   var favBtn=$('btnFavDetail'); var fav=isFav(entry); favBtn.textContent=fav?'★':'☆'; favBtn.classList.toggle('on',fav);
   favBtn.onclick=function(){ setFav(entry,!isFav(entry)); try{entry.update()}catch(e){} markDirty(); openDetail(entry); renderAll(); };
   var h='';
-  var order=['UserName','Password'];
-  entryFieldNames(entry).forEach(function(n){ if(n==='Title'||n==='_favorite') return; if(n.toLowerCase()==='otp'||n.toLowerCase()==='totp') return; if(order.indexOf(n)===-1) order.push(n); }); // 2FA 密钥不直接显示，下面单独给一行“当前验证码”
+  var names=entryFieldNames(entry);
+  var order=[];
+  ['UserName','Password'].forEach(function(n){ if(names.indexOf(n)>-1) order.push(n); }); // 账号、密码有才显示，删了就不显示
+  names.forEach(function(n){ if(n==='Title'||n==='_favorite') return; if(n.toLowerCase()==='otp'||n.toLowerCase()==='totp') return; if(order.indexOf(n)===-1) order.push(n); }); // 2FA 密钥不直接显示，下面单独给一行“当前验证码”
   order.forEach(function(n){
     var v=fieldText(entry,n);
     if(v===''&&n!=='UserName'&&n!=='Password') return;
@@ -3331,42 +3310,84 @@ function findBestTemplate(entry){
 }
 function collectCustomValues(){
   var out={};
-  document.querySelectorAll('#fCustomFields [data-field]').forEach(function(el){ out[el.getAttribute('data-field')]=el.value; });
+  document.querySelectorAll('#fFields [data-field]').forEach(function(el){ out[el.getAttribute('data-field')]=el.value; });
   return out;
 }
-/* 编辑器里一个自定义字段的行：行头是字段名 + 上移/下移/删除，行身是输入框或下拉。
-   标题、账号、密码是固定在上面的三项（只有标题必填），不在这里，不参与排序和删除。 */
+/* 按字段名/类型建值控件，返回一个容器（里面是值输入框）。
+   账号：文本输入 + 常用手机号/邮箱下拉；密码：明文输入 + 生成按钮；
+   手机号/邮箱：只能从常用里选的下拉；其他按类型（密码掩码、日期、数字、网址、多行文本、文本）。
+   容器挂 _pickSel/_pickInput（账号）或 _genBtn/_genInput（密码），
+   调用方把容器放进 DOM 后再调 wireFieldExtras(容器) 接好下拉/生成。 */
+function buildFieldValueControls(name, type, value){
+  var canon=canonicalFieldName(name);
+  var box=document.createElement('div');
+  if(canon==='UserName'){
+    var uInp=document.createElement('input');
+    uInp.setAttribute('data-field',name); uInp.setAttribute('data-ftype','text');
+    uInp.placeholder='手机号、邮箱或用户名'; uInp.autocomplete='off';
+    if(value!=null) uInp.value=value;
+    var pick=document.createElement('select'); pick.className='field-pick';
+    box.appendChild(uInp); box.appendChild(pick);
+    box._pickSel=pick; box._pickInput=uInp;
+  } else if(canon==='Password'){
+    var pWrap=document.createElement('div'); pWrap.style.cssText='display:flex;gap:8px';
+    var pInp=document.createElement('input');
+    pInp.type='text'; pInp.setAttribute('data-field',name); pInp.setAttribute('data-ftype','password');
+    pInp.placeholder='密码'; pInp.autocomplete='new-password';
+    pInp.style.cssText='flex:1;padding:13px 15px;border-radius:13px;border:1.5px solid var(--line);background:var(--bg);font-family:var(--mono);font-size:16px;min-width:0';
+    if(value!=null) pInp.value=value;
+    var g=document.createElement('button'); g.type='button'; g.className='btn btn-sm'; g.textContent='🎲 生成';
+    pWrap.appendChild(pInp); pWrap.appendChild(g); box.appendChild(pWrap);
+    box._genBtn=g; box._genInput=pInp;
+  } else if(type==='phone'||type==='email'){
+    // 手机号/邮箱只能从常用里选，不能手打
+    var sel=document.createElement('select'); sel.setAttribute('data-field',name); sel.setAttribute('data-ftype',type);
+    var list=type==='phone'?contacts.phones:contacts.emails;
+    var o0=document.createElement('option'); o0.value=''; o0.textContent=list.length?'请选择…':'（常用里还没有，去设置页添加）'; sel.appendChild(o0);
+    list.forEach(function(v){ var o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
+    // 之前的值可能不在常用里（比如编辑旧条目），补一个选项保住它，不然一打开就丢了
+    if(value!=null&&value!==''&&list.indexOf(value)<0){ var oe=document.createElement('option'); oe.value=value; oe.textContent=value; sel.appendChild(oe); }
+    if(value!=null) sel.value=value;
+    box.appendChild(sel);
+  } else {
+    var input;
+    if(type==='textarea'){ input=document.createElement('textarea'); input.rows=3; }
+    else {
+      input=document.createElement('input');
+      input.type= type==='date'?'date': type==='number'?'number': type==='url'?'url': (type==='password'?'password':'text');
+    }
+    input.setAttribute('data-field',name); input.setAttribute('data-ftype',type);
+    if(value!=null) input.value=value;
+    box.appendChild(input);
+  }
+  return box;
+}
+/* 把值容器放进 DOM 后，账号接好常用下拉、密码接好生成按钮。 */
+function wireFieldExtras(box){
+  if(!box) return;
+  if(box._pickSel&&box._pickInput) fillContactPicker(box._pickSel,'user',box._pickInput);
+  if(box._genBtn&&box._genInput){
+    var b=box._genBtn, inp=box._genInput;
+    b.addEventListener('click',function(){ inp.value=makePassword(loadGenSettings()); inp.focus(); });
+  }
+}
+/* 编辑器里一个字段的行：行头是字段名 + 上移/下移/删除，行身是值控件。
+   标题固定在上面（必填）；账号、密码和其他字段都在这里，可以排序和删除。 */
 function buildFieldRow(f,pv){
   var wrap=document.createElement('div'); wrap.className='field';
   var head=document.createElement('div'); head.className='field-row-head';
-  var lab=document.createElement('label'); lab.textContent=f.name; head.appendChild(lab);
+  var lab=document.createElement('label');
+  lab.textContent = canonicalFieldName(f.name)==='UserName' ? '账号 / 用户名' : f.name;
+  head.appendChild(lab);
   var btns=document.createElement('div'); btns.className='field-row-btns';
   var up=document.createElement('button'); up.type='button'; up.className='fld-up'; up.textContent='↑'; up.title='上移'; up.setAttribute('aria-label','上移字段');
   var down=document.createElement('button'); down.type='button'; down.className='fld-down'; down.textContent='↓'; down.title='下移'; down.setAttribute('aria-label','下移字段');
   var del=document.createElement('button'); del.type='button'; del.className='fld-del'; del.textContent='×'; del.title='删除这个字段'; del.setAttribute('aria-label','删除字段');
   btns.appendChild(up); btns.appendChild(down); btns.appendChild(del); head.appendChild(btns);
   wrap.appendChild(head);
-  if(f.type==='phone'||f.type==='email'){
-    // 手机号/邮箱只能从常用里选，不能手打
-    var sel=document.createElement('select'); sel.setAttribute('data-field',f.name); sel.setAttribute('data-ftype',f.type);
-    var list=f.type==='phone'?contacts.phones:contacts.emails;
-    var o0=document.createElement('option'); o0.value=''; o0.textContent=list.length?'请选择…':'（常用里还没有，去设置页添加）'; sel.appendChild(o0);
-    list.forEach(function(v){ var o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
-    // 之前的值可能不在常用里（比如编辑旧条目），补一个选项保住它，不然一打开就丢了
-    if(pv!=null&&pv!==''&&list.indexOf(pv)<0){ var oe=document.createElement('option'); oe.value=pv; oe.textContent=pv; sel.appendChild(oe); }
-    if(pv!=null) sel.value=pv;
-    wrap.appendChild(sel);
-  } else {
-    var input;
-    if(f.type==='textarea'){ input=document.createElement('textarea'); input.rows=3; }
-    else {
-      input=document.createElement('input');
-      input.type= f.type==='date'?'date': f.type==='number'?'number': f.type==='url'?'url': (f.type==='password'?'password':'text');
-    }
-    input.setAttribute('data-field',f.name); input.setAttribute('data-ftype',f.type);
-    if(pv!=null) input.value=pv;
-    wrap.appendChild(input);
-  }
+  var valBox=buildFieldValueControls(f.name, f.type, pv);
+  wrap.appendChild(valBox);
+  wrap._valBox=valBox;
   up.addEventListener('click',function(){ moveFieldRow(wrap,-1); });
   down.addEventListener('click',function(){ moveFieldRow(wrap,1); });
   del.addEventListener('click',function(){ deleteFieldRow(wrap); });
@@ -3374,7 +3395,7 @@ function buildFieldRow(f,pv){
 }
 /* 字段上下移：只换编辑器里这一行的位置，保存时按这个顺序写进库里 */
 function moveFieldRow(row,dir){
-  var box=$('fCustomFields'); if(!box||!row.parentNode) return;
+  var box=$('fFields'); if(!box||!row.parentNode) return;
   var sib=dir<0?row.previousElementSibling:row.nextElementSibling;
   if(!sib) return;
   if(dir<0) box.insertBefore(row,sib); else box.insertBefore(sib,row);
@@ -3391,39 +3412,18 @@ function deleteFieldRow(row){
   if(!val){ row.remove(); return; }
   askConfirm('删除字段','确定删除字段“'+disp+'”吗？保存后这个字段就从这个账号里去掉了。','确认删除',function(){ row.remove(); });
 }
-/* “＋ 添加字段”：加一行空字段，上面输字段名、下面输值；输了字段名后类型按名字自动认
-   （含“密码”就是密码类、含“邮箱”就是邮箱，等等），保存时按这个名字写进条目。 */
-/* 新加字段的值控件：按类型生成。手机号/邮箱用常用里的下拉（只能从常用里选），
-   密码是掩码输入，日期/数字/网址用浏览器自带的类型，多行文本用 textarea。 */
-function buildNewFieldValueControl(type,name,value){
-  var prev=value==null?'':value;
-  if(type==='phone'||type==='email'){
-    var sel=document.createElement('select'); sel.setAttribute('data-field',name); sel.setAttribute('data-ftype',type);
-    var list=type==='phone'?contacts.phones:contacts.emails;
-    var o0=document.createElement('option'); o0.value=''; o0.textContent=list.length?'请选择…':'（常用里还没有，去设置页添加）'; sel.appendChild(o0);
-    list.forEach(function(v){ var o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
-    if(prev&&list.indexOf(prev)<0){ var oe=document.createElement('option'); oe.value=prev; oe.textContent=prev; sel.appendChild(oe); }
-    sel.value=prev;
-    return sel;
-  }
-  var input;
-  if(type==='textarea'){ input=document.createElement('textarea'); input.rows=3; }
-  else {
-    input=document.createElement('input');
-    input.type= type==='date'?'date': type==='number'?'number': type==='url'?'url': (type==='password'?'password':'text');
-  }
-  input.className='new-field-value'; input.setAttribute('data-field',name); input.setAttribute('data-ftype',type); input.placeholder='值';
-  input.value=prev;
-  return input;
-}
+/* “＋ 添加字段”：加一行空字段，上面是字段名 + 类型下拉，下面是值。
+   输字段名时类型按名字自动认（“支付密码”就是密码类、“备用邮箱”就是邮箱），
+   但类型可以自己改，改了之后值那一栏会跟着换（手机号/邮箱换成常用下拉，密码换成掩码，数字换成数字输入）。
+   字段名填“账号”就是账号（带常用下拉），填“密码”就是密码（带生成按钮），填“otp”就是 2FA 密钥。 */
 /* “＋ 添加字段”：加一行空字段，上面是字段名 + 类型下拉，下面是值。
    输字段名时类型按名字自动认（“支付密码”就是密码类、“备用邮箱”就是邮箱），
    但类型可以自己改，改了之后值那一栏会跟着换（手机号/邮箱换成常用下拉，密码换成掩码，数字换成数字输入）。 */
 function addFieldRow(){
-  var box=$('fCustomFields'); if(!box) return;
+  var box=$('fFields'); if(!box) return;
   var wrap=document.createElement('div'); wrap.className='field';
   var head=document.createElement('div'); head.className='field-row-head';
-  var nameInput=document.createElement('input'); nameInput.className='new-field-name'; nameInput.placeholder='字段名，例如：备用邮箱';
+  var nameInput=document.createElement('input'); nameInput.className='new-field-name'; nameInput.placeholder='字段名，例如：备用邮箱；2FA 密钥填 otp';
   head.appendChild(nameInput);
   var typeSel=document.createElement('select'); typeSel.className='new-field-type'; typeSel.setAttribute('aria-label','字段类型');
   FIELD_TYPES.forEach(function(ft){ var o=document.createElement('option'); o.value=ft[0]; o.textContent=ft[1]; typeSel.appendChild(o); });
@@ -3438,10 +3438,13 @@ function addFieldRow(){
   wrap.appendChild(valWrap);
   var typeManual=false; // 用户手动改过类型后，输字段名不再自动改类型
   function rebuildVal(){
-    var cur=valWrap.firstChild?valWrap.firstChild.value:'';
+    var curEl=valWrap.querySelector('[data-field]');
+    var cur=curEl?curEl.value:'';
     var n=nameInput.value.trim();
     valWrap.innerHTML='';
-    valWrap.appendChild(buildNewFieldValueControl(typeSel.value,n,cur));
+    var ctrl=buildFieldValueControls(n, typeSel.value, cur);
+    valWrap.appendChild(ctrl);
+    wireFieldExtras(ctrl);
   }
   nameInput.addEventListener('input',function(){
     if(!typeManual){ var t=inferFieldType(nameInput.value.trim()); typeSel.value=t; }
@@ -3456,10 +3459,10 @@ function addFieldRow(){
   nameInput.focus();
 }
 $('btnAddField').addEventListener('click',function(){ addFieldRow(); });
-function rebuildCustomFields(ordered){
+function rebuildFields(ordered){
   var t=getTemplate(currentTplId);
   var prev=collectCustomValues();
-  var box=$('fCustomFields'); box.innerHTML='';
+  var box=$('fFields'); box.innerHTML='';
   // ordered 传了就按它排（编辑旧条目时按库里存的顺序，新建时按模板顺序）；
   // 没传（切模板时）就按模板字段 + 之前多出来的字段。
   var fields=ordered||null;
@@ -3470,10 +3473,12 @@ function rebuildCustomFields(ordered){
   }
   fields.forEach(function(f){
     var pv=prev[f.name]!=null?prev[f.name]:prev[canonicalFieldName(f.name)];
-    box.appendChild(buildFieldRow(f,pv));
+    var row=buildFieldRow(f,pv);
+    box.appendChild(row);
+    if(row._valBox) wireFieldExtras(row._valBox);
   });
 }
-function openEntryEditor(entry,prefillPwd){
+function openEntryEditor(entry){
   editingEntry=entry||null;
   $('editorTitle').textContent=entry?'编辑账号':'添加账号';
   // 编辑已有账号时不显示模板选择（模板只在新建时用来定字段，编辑时条目已有自己的字段，选模板没用）；
@@ -3483,39 +3488,27 @@ function openEntryEditor(entry,prefillPwd){
   var tpl=entry?findBestTemplate(entry):templates[0];
   currentTplId=tpl.id; $('fTemplateSel').value=tpl.id;
   $('fTitle').value=entry?fieldText(entry,'Title'):'';
-  $('fUser').value=entry?fieldText(entry,'UserName'):'';
-  $('fPass').value=entry?fieldText(entry,'Password'):(prefillPwd||'');
-  $('fTotp').value=entry?totpRawForEntry(entry):'';
-  $('fTotpPreview').classList.add('hidden');
   $('fFav').checked=entry?isFav(entry):false;
-  // 编辑旧条目时，字段按库里存的顺序排（这样上次调好的顺序、删掉的字段都不会复活）；
-  // 新建时按模板顺序排。模板里有、条目里没有的字段不自动补回来——删了就是删了，
+  // 字段列表：编辑旧条目时按库里存的顺序排（这样上次调好的顺序、删掉的字段都不会复活），
+  // 标题固定在上面不进列表，账号、密码、otp 和其他字段都在列表里，可以删、可以上下移；
+  // 新建时按模板顺序排（模板只带标题以外的自定义字段，账号、密码不自动带，
+  // 需要时点“＋ 添加字段”加上）。模板里有、条目里没有的字段不自动补回来——删了就是删了，
   // 想加回来点下面的“＋ 添加字段”再输名字就行。
   var ordered=null;
   if(entry){
     ordered=[];
     entryFieldNames(entry).forEach(function(n){
-      if(['Title','UserName','Password','_favorite'].indexOf(n)>-1) return;
-      if(n.toLowerCase()==='otp'||n.toLowerCase()==='totp') return; // 2FA 密钥走专门的输入框，不进自定义字段
+      if(['Title','_favorite'].indexOf(n)>-1) return;
       var inTpl=tpl.fields.filter(function(f){ return f.name===n||canonicalFieldName(f.name)===n||canonicalFieldName(f.name)===canonicalFieldName(n); })[0];
       ordered.push({name:displayFieldName(n),type:inTpl?inTpl.type:inferFieldType(n)});
     });
   }
   if(!entry){
-    $('fCustomFields').innerHTML=''; // 新建：先清掉上次编辑残留在编辑器里的值，不然新条目会被提前写好
-    // 账号的常用选择器也要清干净：fillContactPicker 会保留上次选的值（prevVal），
-    // 不清的话上次选的手机号还留在下拉和 chip 上，看着像自动选好了
-    var fp=$('fUserPick');
-    if(fp){
-      fp.value='';
-      var ch=pickChipFor(fp);
-      if(ch){ ch.classList.remove('show'); var cv=ch.querySelector('.v'); if(cv) cv.textContent=''; }
-    }
-    $('fUser').classList.remove('picked');
+    $('fFields').innerHTML=''; // 新建：先清掉上次编辑残留在编辑器里的值，不然新条目会被提前写好
   }
-  rebuildCustomFields(ordered);
+  rebuildFields(ordered);
   if(entry){
-    document.querySelectorAll('#fCustomFields [data-field]').forEach(function(el){
+    document.querySelectorAll('#fFields [data-field]').forEach(function(el){
       var n=el.getAttribute('data-field');
       var v=fieldText(entry,canonicalFieldName(n))||fieldText(entry,n);
       if(el.tagName==='SELECT'&&v){
@@ -3526,26 +3519,11 @@ function openEntryEditor(entry,prefillPwd){
       el.value=v;
     });
   }
-  fillContactPicker($('fUserPick'),'user',$('fUser'));
   $('btnDeleteEntry2').classList.toggle('hidden',!entry);
   if(entry){ var gw=allGroups().filter(function(g){return (g.group.entries||[]).indexOf(entry)>-1})[0]; if(gw) $('fGroup').value=gw.uuid; }
   else if(currentGroupUuid) $('fGroup').value=currentGroupUuid;
-  updateTotpPreview(); // 编辑已有 2FA 账号时，直接显示当前验证码，方便核对
   openOverlay('editorOverlay');
 }
-/* 编辑器里 2FA 输入框的实时预览：粘贴的密钥能算出码，就显示当前验证码；
-   格式不对就藏起来，保存时再拦。 */
-function updateTotpPreview(){
-  var p=parseTotpUri(($('fTotp').value||'').trim());
-  if(!p){ $('fTotpPreview').classList.add('hidden'); return; }
-  var bytes=base32Decode(p.secret);
-  if(!bytes||!bytes.length){ $('fTotpPreview').classList.add('hidden'); return; }
-  $('fTotpPreview').classList.remove('hidden');
-  totpCode(bytes, Date.now(), p.digits, p.period, p.algorithm).then(function(code){
-    $('fTotpCode').textContent=code.slice(0,3)+' '+code.slice(3);
-  }).catch(function(){ $('fTotpPreview').classList.add('hidden'); });
-}
-$('fTotp').addEventListener('input',function(){ updateTotpPreview(); });
 $('btnAddEntry').addEventListener('click',function(){ openEntryEditor(null); });
 /* 从所有条目里收集手机号/邮箱，确保常用里有它们（和批量自动加一样的规则）。
    这样即使某次自动加没触发，常用也不会漏掉条目里在用的新号码。只加条目里在用的值，
@@ -3587,33 +3565,38 @@ $('btnSaveEntry').addEventListener('click',function(){
     if(fieldText(x.entry,'Title').trim().toLowerCase()===title.toLowerCase()) dupTitle=fieldText(x.entry,'Title');
   });
   if(dupTitle){ toast('标题“'+title+'”已经存在，不能重名。换个标题再保存。'); return; }
-  // 2FA 密钥格式：粘贴的必须是 otpauth:// 链接或 base32 密钥，格式不对直接拦住。
-  // 放在创建条目之前拦，不然拦住了还留一个空条目在库里（和标题重名校验一个道理）。
-  var totpVal=($('fTotp').value||'').trim();
-  var totpNorm=totpVal?normalizeTotp(totpVal):'';
-  if(totpVal&&!totpNorm){ toast('2FA 密钥格式不对：粘贴网站给的密钥（字母数字串）或 otpauth:// 链接。'); return; }
-  var en=editingEntry, isNew=false;
-  if(!en){ en=db.createEntry(target.group); isNew=true; }
+  // 字段名、格式校验都放在创建条目之前拦，不然拦住了还留一个空条目在库里（和标题重名校验一个道理）。
   // 字段名不能重复（按规范化后的名字比，“网址”和“URL”是同一个字段），
-  // 也不能叫“标题/账号/密码”（那是自动带的固定项，叫这个名会直接盖掉主字段）。
+  // 也不能叫“标题”（标题是固定项，叫这个名会直接盖掉标题）。
+  // 账号、密码现在是普通字段，可以加、可以删，不再是保留名。
   // 新加字段时如果和已有的同名，之前是直接覆盖，很容易丢数据，这里拦住。
-  var seenNames={}, dupName=null, reservedName=null;
-  document.querySelectorAll('#fCustomFields [data-field]').forEach(function(el){
-    if(dupName||reservedName) return;
+  // 2FA 密钥字段（名字是 otp/totp）要归一化成 otpauth:// 链接再存，格式不对就拦住。
+  var seenNames={}, dupName=null, reservedName=null, badOtp=null;
+  document.querySelectorAll('#fFields [data-field]').forEach(function(el){
+    if(dupName||reservedName||badOtp) return;
     var n=(el.getAttribute('data-field')||'').trim();
     if(!n) return;
     var canon=canonicalFieldName(n);
-    if(['Title','UserName','Password'].indexOf(canon)>-1){ reservedName=n; return; }
+    if(canon==='Title'){ reservedName=n; return; }
     if(seenNames[canon]){ dupName=n; return; }
     seenNames[canon]=1;
+    if(canon.toLowerCase()==='otp'||canon.toLowerCase()==='totp'){
+      var v=(el.value||'').trim();
+      if(v){
+        var norm=normalizeTotp(v);
+        if(!norm){ badOtp=n; return; }
+        el._totpNorm=norm;
+      }
+    }
   });
-  if(reservedName){ toast('字段名“'+reservedName+'”是自动带的固定项（标题/账号/密码），不能再加同名字段。'); return; }
+  if(reservedName){ toast('字段名“'+reservedName+'”是标题，不能再加同名字段。'); return; }
   if(dupName){ toast('字段名“'+dupName+'”已经存在，不能重复添加。'); return; }
+  if(badOtp){ toast('2FA 密钥格式不对：粘贴网站给的密钥（字母数字串）或 otpauth:// 链接。'); return; }
   // 再校验格式：邮箱类型的值必须是邮箱格式，数字类型的值必须是数字
   // （银行卡号这种带空格的也行，空格和逗号会先去掉再验）。校验不过就直接停，
   // 条目一个字都不改，用户改好值再点保存就行。
   var bad=null;
-  document.querySelectorAll('#fCustomFields [data-field]').forEach(function(el){
+  document.querySelectorAll('#fFields [data-field]').forEach(function(el){
     if(bad) return;
     var n=(el.getAttribute('data-field')||'').trim(), v=(el.value||'').trim(), t=el.getAttribute('data-ftype')||'';
     if(!n||!v) return;
@@ -3621,17 +3604,19 @@ $('btnSaveEntry').addEventListener('click',function(){
     else if(t==='number'&&!/^-?\d+(\.\d+)?$/.test(v.replace(/[\s,]/g,''))) bad='字段“'+n+'”是数字类型，值“'+v+'”不是数字。';
   });
   if(bad){ toast(bad); return; }
-  setField(en,'Title',title); setField(en,'UserName',$('fUser').value.trim()); setField(en,'Password',$('fPass').value,true);
-  entryFieldNames(en).forEach(function(n){ if(['Title','UserName','Password','_favorite'].indexOf(n)>-1) return; deleteField(en,n); });
-  document.querySelectorAll('#fCustomFields [data-field]').forEach(function(el){
+  var en=editingEntry, isNew=false;
+  if(!en){ en=db.createEntry(target.group); isNew=true; }
+  // 写字段：标题 + 字段列表里的每一行（账号→UserName，密码→Password，otp→归一化后的链接，其他按规范化名字）。
+  // 先把标题和收藏以外的旧字段全清掉，再按编辑器里的顺序重写——删了的行就是删了，调了顺序的就按新顺序存。
+  // otp 字段名含 otp，按密码类字段存成掩码，别的软件打开也显示 •••••。
+  setField(en,'Title',title);
+  entryFieldNames(en).forEach(function(n){ if(['Title','_favorite'].indexOf(n)>-1) return; deleteField(en,n); });
+  document.querySelectorAll('#fFields [data-field]').forEach(function(el){
     var n=(el.getAttribute('data-field')||'').trim(), v=el.value;
     if(!n||v===''||v==null) return;
+    if(el._totpNorm){ setField(en,'otp',el._totpNorm,true); return; }
     setField(en,canonicalFieldName(n),v,isPasswordField(n,fieldTypeFor(n)));
   });
-  // 2FA 密钥单独存 otp 字段（开源 KeePass 的通用存法，KeePassXC 等软件也认）；
-  // 上面删字段那一步已经把旧的 otp 清掉了，这里有值就重新写上，没值就是用户清掉了，不管它。
-  // otp 字段名含 otp，按密码类字段存成掩码，别的软件打开也显示 •••••。
-  if(totpNorm) setField(en,'otp',totpNorm,true);
   setFav(en,$('fFav').checked);
   try{ en.update(); }catch(e){}
   try{ db.update(); }catch(e){}
@@ -4011,7 +3996,7 @@ $('btnAddEmail').addEventListener('click',function(){
   if(contacts.emails.indexOf(v)>-1){ toast('这个邮箱已经在常用里了'); return; }
   contacts.emails.push(v); saveLS(CONTACT_KEY,contacts); syncTplContactsToDb(); $('contactEmailInput').value=''; renderContacts(); toast('已加入常用邮箱');
 });
-$('fTemplateSel').addEventListener('change',function(){ currentTplId=this.value; rebuildCustomFields(); });
+$('fTemplateSel').addEventListener('change',function(){ currentTplId=this.value; rebuildFields(); });
 $('btnDeleteEntry2').addEventListener('click',function(){
   if(!editingEntry) return; currentEntry=editingEntry;
   askConfirm('删除账号','确定删除“'+(fieldText(editingEntry,'Title')||'未命名')+'”吗？会先移到回收站，还能恢复；只有在回收站里彻底删除，才是真的删掉。记得点保存才写进文件。','移到回收站',doDeleteEntry);
@@ -4213,4 +4198,4 @@ window.addEventListener('orientationchange',fitRootWidth);
 <!-- recent-20261127 -->
 <!-- savecopy-20261127 -->
 <!-- totp2-20261127 -->
-<!-- vault2-20261127 -->
+<!-- editor-20261127 -->
