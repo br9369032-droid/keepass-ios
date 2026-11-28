@@ -240,8 +240,15 @@ input[type=range]{width:100%;accent-color:var(--accent);min-height:36px}
   .chip-row .chip{padding:8px 11px}
 }
 /* ---------- 密码库两页：分组页（纯分组列表）+ 条目页 ---------- */
+.vault-split{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 #vaultGroupsPage{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;margin-top:10px}
 #vaultEntriesPage{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;margin-top:10px}
+/* 电脑网页：密码库改左右两栏，左边分组（240px），右边条目，两页同时显示，不用进退页面；
+   手机和 App 还是两页切。body 上的 env-desktop-web 由 enterVault 按 getEnv() 挂。 */
+body.env-desktop-web .vault-split{flex-direction:row;gap:16px}
+body.env-desktop-web #vaultGroupsPage{flex:0 0 240px;width:240px}
+body.env-desktop-web #vaultEntriesPage{flex:1;min-width:0}
+body.env-desktop-web #btnVaultBack{display:none}
 #vaultEntriesPage .entry-col{flex:1;min-height:0;position:relative;display:flex;flex-direction:column;overflow:hidden}
 #vaultEntriesPage .entry-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
 .group-row{display:flex;flex-direction:column;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:8px}
@@ -289,7 +296,7 @@ body.batch-mode #vaultEntriesPage .entries-head{display:none}
 .entry-list{display:grid;gap:11px}
 /* 桌面网页版条目也是单列展示（一行一条），两列看着挤。 */
 .recycle-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:1.5px solid var(--line);border-radius:var(--r-md);padding:10px 12px;margin-bottom:11px}
-.entry-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow);transition:border-color .15s,transform .12s,box-shadow .15s;cursor:pointer}
+.entry-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px 16px;box-shadow:var(--shadow);transition:border-color .15s,transform .12s,box-shadow .15s;cursor:pointer}
 .entry-card:active{transform:scale(.985)}
 .entry-card:hover{border-color:var(--faint)}
 .entry-top{display:flex;gap:13px;align-items:center}
@@ -298,17 +305,15 @@ body.batch-mode #vaultEntriesPage .entries-head{display:none}
 .entry-top .meta span{font-size:13px;color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono)}
 .fav-btn{width:42px;height:42px;min-height:42px;border:none;border-radius:12px;background:transparent;font-size:20px;color:var(--faint);flex-shrink:0}
 .fav-btn.on{color:var(--gold)}
-.entry-foot{display:flex;align-items:center;gap:8px;margin-top:13px;flex-wrap:wrap}
+/* 批量模式下标题行留一个「详情」按钮（批量时点卡片是勾选，进详情只能点它） */
+.detail-btn{border:1px solid var(--line);background:var(--surface);border-radius:999px;min-height:36px;padding:6px 13px;font-size:12.5px;font-weight:600;color:var(--muted);flex-shrink:0;cursor:pointer}
+.detail-btn:active{background:var(--accent-soft);color:var(--accent-strong);border-color:var(--accent)}
 .pill{font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;background:var(--surface2);color:var(--muted)}
 #btnClipClear{cursor:pointer;border:none}
 .pill.s-strong{background:var(--accent-soft);color:var(--accent-ink)}
 .pill.s-mid{background:var(--gold-soft);color:var(--warn)}
 .pill.s-weak{background:var(--danger-soft);color:var(--danger)}
 .pill.grp{background:transparent;border:1px solid var(--line)}
-.entry-foot .sp{flex:1;min-width:0}
-.quick{display:flex;gap:7px}
-.quick button{border:1px solid var(--line);background:var(--surface);border-radius:999px;min-height:36px;padding:6px 13px;font-size:12.5px;font-weight:600;color:var(--muted);display:inline-flex;gap:5px;align-items:center;transition:all .15s}
-.quick button:active{background:var(--accent-soft);color:var(--accent-strong);border-color:var(--accent)}
 .empty{text-align:center;padding:46px 22px;color:var(--muted);background:var(--surface);border:1.5px dashed var(--line);border-radius:var(--r-lg)}
 .empty .big{font-size:38px;display:block;margin-bottom:8px}
 
@@ -586,7 +591,7 @@ body.batch-mode .entry-list{grid-template-columns:1fr}
       <div class="b-card"><span class="from">Proton Pass</span><b>干净现代、隐私优先</b><p>清爽的视觉和大圆角，操作路径短；同时坚持隐私优先，不追踪、不打广告。</p></div>
       <div class="b-card"><span class="from">Strongbox / KeePassium</span><b>iPhone 上的顺手感</b><p>手机优先的底部导航、大点按区、底部弹出的详情页，在 iPhone 上添加到主屏幕就像原生 App。</p></div>
       <div class="b-card"><span class="from">KeePassXC</span><b>扎实的本地加密内核</b><p>沿用它守护的标准 .kdbx 格式与 Argon2 / AES-256，文件在你手里，和桌面端完全互通。</p></div>
-      <div class="b-card"><span class="from">这一版自己补的</span><b>一键复制与自动清理</b><p>卡片上直接复制账号 / 密码，不用层层点进去；复制后 12 秒自动清剪贴板，无操作自动锁定。</p></div>
+      <div class="b-card"><span class="from">这一版自己补的</span><b>一键复制与自动清理</b><p>点进详情直接复制账号 / 密码，不用层层点进去；复制后 12 秒自动清剪贴板，无操作自动锁定。</p></div>
     </div>
     <div class="avoid">
       <b>刻意避开的三个坑</b>
@@ -658,6 +663,8 @@ body.batch-mode .entry-list{grid-template-columns:1fr}
       </div>
       <p class="batch-query-hint" id="batchQueryHint">先选一个值点查询，列出所有用这个值的账号，再勾选要改的。</p>
     </div>
+    <!-- 密码库：手机上是两页（分组页→条目页）；电脑上是左右两栏（左分组右条目），两页同时显示 -->
+    <div class="vault-split" id="vaultSplit">
     <!-- 密码库第一页：纯分组列表（全部/收藏/回收站/各分组），点一行进条目页 -->
     <div id="vaultGroupsPage">
       <nav class="group-row" id="groupList" aria-label="分组"></nav>
@@ -677,6 +684,7 @@ body.batch-mode .entry-list{grid-template-columns:1fr}
         </div>
         <nav class="alpha-index hidden" id="alphaIndex" aria-label="首字母索引"></nav>
       </div>
+    </div>
     </div>
     <div class="batch-bar hidden" id="batchBar">
       <div class="field"><label for="batchNew">新值</label><input id="batchNew" placeholder="输入新值，或从下面选择常用"><select id="batchNewPick" class="field-pick"></select></div>
@@ -785,7 +793,7 @@ body.batch-mode .entry-list{grid-template-columns:1fr}
     <div class="big-card">
       <h3>关于这个库</h3>
       <p class="sub" style="margin-bottom:0">标准 KeePass .kdbx 格式，可继续用 KeePassXC（Windows）、Strongbox / KeePassium（iOS）打开。收藏会以标签形式写进库文件，换客户端也不会丢。</p>
-      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：emptyfields-20261128</p>
+      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：slimcards-20261128</p>
     </div>
   </section>
 
@@ -2914,6 +2922,8 @@ $('btnCreate').addEventListener('click',function(){
 function enterVault(name){
   $('lockedView').classList.add('hidden'); $('vaultView').classList.remove('hidden');
   $('vaultName').textContent=name; dirty=false; $('dirtyDot').style.display='none';
+  // 电脑网页密码库是左右两栏（左分组右条目），手机和 App 是两页切；进库时按环境和窗口宽挂 class
+  updateDesktopSplitClass();
   // 记下当前是哪个文件，模版/常用只用这个文件的，不用旧文件的缓存
   if(webdav&&webdav.fileUrl) currentFileId='dav:'+webdav.fileUrl;
   else if(selectedFileName) currentFileId='local:'+selectedFileName;
@@ -2963,10 +2973,12 @@ function entriesTitleText(){
 }
 function showVaultPage(page){
   vaultPage=page;
-  $('vaultGroupsPage').classList.toggle('hidden',page!=='groups');
-  $('vaultEntriesPage').classList.toggle('hidden',page!=='entries');
-  $('tab-vault').classList.toggle('vault-page-groups',page==='groups');
-  $('tab-vault').classList.toggle('vault-page-entries',page==='entries');
+  // 电脑网页是左右两栏，两页同时显示，不用藏起哪一页；手机和 App 还是两页切
+  var isDesktop=document.body.classList.contains('env-desktop-web');
+  $('vaultGroupsPage').classList.toggle('hidden',page!=='groups'&&!isDesktop);
+  $('vaultEntriesPage').classList.toggle('hidden',page!=='entries'&&!isDesktop);
+  $('tab-vault').classList.toggle('vault-page-groups',page==='groups'&&!isDesktop);
+  $('tab-vault').classList.toggle('vault-page-entries',page==='entries'||isDesktop);
 }
 function goToGroups(){
   if(batchMode) setBatchMode(false); // 回分组页先退出批量（批量只在条目页里）
@@ -3249,7 +3261,7 @@ function renderAlphaIndex(sections){
 /* 单张密码卡片（条目页里按首字母分段后，每段里一张一张贴）。
    批量模式下：全部账号都在同一个单列列表里，选中只打勾+绿框高亮，位置不动、不重排；退出批量恢复原有两列网格。 */
 function buildEntryCard(x){
-    var en=x.entry, title=fieldText(en,'Title')||'(无标题)', user=fieldText(en,'UserName'), pwd=fieldText(en,'Password');
+    var en=x.entry, title=fieldText(en,'Title')||'(无标题)', user=fieldText(en,'UserName');
     var fav=isFav(en);
     var card=document.createElement('div'); card.className='entry-card'+(batchMode?' batch-on':'')+(batchMode&&selectedBatch.has(en)?' batch-selected':''); card.setAttribute('role','button'); card.setAttribute('tabindex','0');
     var content=document.createElement('div'); content.style.flex='1'; content.style.minWidth='0';
@@ -3259,17 +3271,15 @@ function buildEntryCard(x){
     // 回收站里的条目不用收藏（已经是删掉的账号），把 ☆ 藏起来
     if(currentFilter==='recycle') favBtn.style.display='none';
     favBtn.onclick=function(ev){ ev.stopPropagation(); setFav(en,!fav); try{en.update()}catch(e){} markDirty(); renderAll(); toast(!fav?'已收藏，可在 ★ 收藏里查看':'已取消收藏'); };
-    top.appendChild(favBtn); content.appendChild(top);
-    var foot=document.createElement('div'); foot.className='entry-foot';
-    var pills='<span class="pill grp">'+escapeHtml(x.group.name)+'</span><span class="sp"></span>';
-    foot.innerHTML=pills;
-    var quick=document.createElement('span'); quick.className='quick';
-    var qUser=document.createElement('button'); qUser.textContent='复制账号'; qUser.onclick=function(ev){ev.stopPropagation();copyText(user)};
-    var qPwd=document.createElement('button'); qPwd.textContent='复制密码'; qPwd.onclick=function(ev){ev.stopPropagation();copyText(pwd)};
-    if(!user) qUser.style.display='none'; if(!pwd) qPwd.style.display='none';
-    quick.appendChild(qUser); quick.appendChild(qPwd);
-    if(batchMode){ var qDetail=document.createElement('button'); qDetail.textContent='详情'; qDetail.onclick=function(ev){ev.stopPropagation(); openDetail(en);}; quick.appendChild(qDetail); }
-    foot.appendChild(quick); content.appendChild(foot);
+    top.appendChild(favBtn);
+    // 卡片只留标题+账号，不放复制账号/复制密码和分组标签（复制去详情里做，卡片要薄、排得密）；
+    // 批量模式下点卡片是勾选，进详情只能点「详情」，所以只在批量时在标题行留一个详情按钮
+    if(batchMode){
+      var qDetail=document.createElement('button'); qDetail.className='detail-btn'; qDetail.textContent='详情';
+      qDetail.onclick=function(ev){ ev.stopPropagation(); openDetail(en); };
+      top.appendChild(qDetail);
+    }
+    content.appendChild(top);
     if(batchMode){
       var wrap=document.createElement('div'); wrap.className='batch-wrap';
       // 根因修复：以前复选框的 click 会冒泡到卡片，卡片 onclick 又把 cb.checked 翻转一次，
@@ -3908,6 +3918,26 @@ function getEnv(){
   if(isMobileBrowser()) return 'mobile-web';
   return 'desktop-web';
 }
+/* 电脑网页左右两栏只在窗口够宽时才启用（>=900px）：窄窗口（比如把电脑浏览器缩得很小）
+   还是走手机那套两页切，不然 240px 侧栏 + 条目挤在一起没法看，返回按钮也没了。
+   body 上的 env-desktop-web 只在“电脑环境且够宽”时才挂，enterVault 和窗口缩放时都会重算。 */
+function updateDesktopSplitClass(){
+  var split=getEnv()==='desktop-web'&&window.innerWidth>=900;
+  document.body.classList.toggle('env-desktop-web',split);
+  return split;
+}
+(function(){
+  var _splitT=null;
+  window.addEventListener('resize',function(){
+    if(_splitT) clearTimeout(_splitT);
+    _splitT=setTimeout(function(){
+      var had=document.body.classList.contains('env-desktop-web');
+      updateDesktopSplitClass();
+      var has=document.body.classList.contains('env-desktop-web');
+      if(had!==has&&typeof vaultPage!=='undefined'&&vaultPage) showVaultPage(vaultPage);
+    },150);
+  });
+})();
 /* 手机上：浏览器下载框是原生的、会挡住页面，所以用户下一次点页面，就说明下载框已经关掉了。
    那时再把未保存标记清掉、提示一句「已下载」，不用再点「已保存」确认。 */
 var dirtyClearArmed=false;
@@ -4509,3 +4539,4 @@ window.addEventListener('orientationchange',fitRootWidth);
 <!-- davnative-20261127 -->
 <!-- grouprename-20261128 -->
 <!-- emptyfields-20261128 -->
+<!-- slimcards-20261128 -->
