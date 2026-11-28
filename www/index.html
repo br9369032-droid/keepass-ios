@@ -255,6 +255,8 @@ input[type=range]{width:100%;accent-color:var(--accent);min-height:36px}
 .g-row .g-chip{flex:1;min-width:0;width:auto}
 .g-del{border:1px solid transparent;background:transparent;border-radius:12px;width:44px;min-height:48px;font-size:17px;color:var(--muted);cursor:pointer;flex-shrink:0}
 .g-del:active{background:var(--danger-soft);color:var(--danger)}
+.g-edit{border:1px solid transparent;background:transparent;border-radius:12px;width:44px;min-height:48px;font-size:17px;color:var(--muted);cursor:pointer;flex-shrink:0}
+.g-edit:active{background:var(--accent-soft);color:var(--accent)}
 /* 条目页顶：返回 + 组名 + 数量 */
 .entries-head{display:flex;align-items:center;gap:10px;padding:2px 0 10px;flex-shrink:0}
 .entries-head #btnVaultBack{font-size:15px;font-weight:700;flex-shrink:0}
@@ -781,7 +783,7 @@ body.batch-mode .entry-list{grid-template-columns:1fr}
     <div class="big-card">
       <h3>关于这个库</h3>
       <p class="sub" style="margin-bottom:0">标准 KeePass .kdbx 格式，可继续用 KeePassXC（Windows）、Strongbox / KeePassium（iOS）打开。收藏会以标签形式写进库文件，换客户端也不会丢。</p>
-      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：davnative-20261127</p>
+      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：grouprename-20261128</p>
     </div>
   </section>
 
@@ -844,6 +846,17 @@ body.batch-mode .entry-list{grid-template-columns:1fr}
     <div class="sheet-head"><div class="tt"><b>新建分组</b><span>例如：银行、工作、游戏、家人共用</span></div><button class="x" onclick="closeOverlay('groupOverlay')" aria-label="关闭">✕</button></div>
     <div class="sheet-body"><div class="field"><label for="gName">分组名称</label><input id="gName" placeholder="输入分组名"></div></div>
     <div class="sheet-foot"><button class="btn" onclick="closeOverlay('groupOverlay')">取消</button><button class="btn btn-primary" id="btnCreateGroup">创建分组</button></div>
+  </div>
+</div>
+
+<!-- RENAME GROUP -->
+<div class="overlay" id="groupRenameOverlay">
+  <div class="sheet" role="dialog" aria-modal="true" aria-label="改分组名">
+    <div class="sheet-grab"></div>
+    <div class="sheet-head"><div class="tt"><b>改分组名</b><span>只改这一个分组的名字，里面的账号不动</span></div><button class="x" onclick="closeOverlay('groupRenameOverlay')" aria-label="关闭">✕</button></div>
+    <div class="sheet-body"><div class="field"><label for="gRenameName">分组名称</label><input id="gRenameName" placeholder="输入新的分组名"></div></div>
+    <div class="error" id="gRenameError"></div>
+    <div class="sheet-foot"><button class="btn" onclick="closeOverlay('groupRenameOverlay')">取消</button><button class="btn btn-primary" id="btnRenameGroup">保存</button></div>
   </div>
 </div>
 
@@ -2985,12 +2998,17 @@ function syncFilterChips(){
 }
 function renderGroups(){
   var gs=allGroups(), list=$('groupList'); list.innerHTML='';
-  function mk(label,count,uuid,active,onclick,onDelete){
+  function mk(label,count,uuid,active,onclick,onDelete,onRename){
     var row=document.createElement('div'); row.className='g-row';
     var b=document.createElement('button'); b.className='g-chip'+(active?' active':'');
     b.innerHTML='<span>'+escapeHtml(label)+'</span><span class="n">'+count+'</span><span class="go">›</span>';
     b.onclick=onclick||function(){ clearSearch(); currentGroupUuid=uuid; currentFilter='all'; syncFilterChips(); renderGroups(); goToEntries(); };
     row.appendChild(b);
+    if(onRename){
+      var ed=document.createElement('button'); ed.className='g-edit'; ed.type='button'; ed.textContent='✎'; ed.setAttribute('aria-label','改分组名 '+label);
+      ed.onclick=function(ev){ ev.stopPropagation(); onRename(); };
+      row.appendChild(ed);
+    }
     if(onDelete){
       var del=document.createElement('button'); del.className='g-del'; del.type='button'; del.textContent='🗑'; del.setAttribute('aria-label','删除分组 '+label);
       del.onclick=function(ev){ ev.stopPropagation(); onDelete(); };
@@ -3015,9 +3033,9 @@ function renderGroups(){
   });
   gs.forEach(function(gw){
     var c=(gw.group.entries||[]).filter(function(en){ return !isTotpOnlyEntry(en); }).length;
-    // 只有子分组能删（depth>0）；根分组（depth 0，显示为“未命名分组”或库名）是整个库的顶层容器，不能删
-    var canDelete=gw.depth>0;
-    mk(gw.name,c,gw.uuid,currentGroupUuid===gw.uuid,null,canDelete?function(){ askDeleteGroup(gw); }:null);
+    // 只有子分组能改名和删除（depth>0）；根分组（depth 0，显示为“未命名分组”或库名）是整个库的顶层容器，不能改也不能删
+    var canEdit=gw.depth>0;
+    mk(gw.name,c,gw.uuid,currentGroupUuid===gw.uuid,null,canEdit?function(){ askDeleteGroup(gw); }:null,canEdit?function(){ askRenameGroup(gw); }:null);
   });
   var add=document.createElement('button'); add.className='g-chip add'; add.innerHTML='<span>＋ 新分组</span>';
   add.onclick=function(){ $('gName').value=''; openOverlay('groupOverlay'); setTimeout(function(){$('gName').focus()},80); };
@@ -3071,6 +3089,33 @@ function doDeleteGroup(gw, entries){
   markDirty(); renderAll();
   toast('已删除分组「'+name+'」，'+n+' 个账号已移到回收站，记得点保存');
 }
+/* 改分组名：只能改子分组（depth>0）；根分组、全部/收藏/回收站不能改。
+   名字不能为空；和其他分组重名要拦住（不分大小写比，分组列表是平铺的，重名分不清）。
+   改完只改内存，要点保存才写进文件；正看着这个分组时条目页顶上的组名也跟着变。 */
+var renameGroupTarget=null;
+function askRenameGroup(gw){
+  renameGroupTarget=gw;
+  var err=$('gRenameError'); if(err) err.textContent='';
+  $('gRenameName').value=gw.name||'';
+  openOverlay('groupRenameOverlay');
+  setTimeout(function(){ var inp=$('gRenameName'); if(inp){ inp.focus(); inp.select(); } },80);
+}
+$('btnRenameGroup').addEventListener('click',function(){
+  var gw=renameGroupTarget; if(!gw||!db) return;
+  var name=$('gRenameName').value.trim();
+  var err=$('gRenameError');
+  if(!name){ if(err) err.textContent='请填写分组名称'; return; }
+  if(name===(gw.name||'')){ closeOverlay('groupRenameOverlay'); return; }
+  var dup=false;
+  allGroups().forEach(function(g){ if(g.uuid!==gw.uuid && (g.name||'').trim().toLowerCase()===name.toLowerCase()) dup=true; });
+  if(dup){ if(err) err.textContent='已经有同名分组了，换个名字'; return; }
+  var old=gw.name||'未命名分组';
+  gw.group.name=name;
+  closeOverlay('groupRenameOverlay');
+  markDirty(); renderGroups();
+  if(currentGroupUuid===gw.uuid) renderEntries();
+  toast('分组已改名「'+old+'」→「'+name+'」，记得点保存');
+});
 /* 搜索范围下拉：固定项（全部/标题/账号/手机号/邮箱/备注/网址）+ 库里现有的自定义字段名（不同模板的都在里面） */
 function populateSearchScope(){
   var sel=$('searchScope'); if(!sel) return;
@@ -4419,3 +4464,4 @@ window.addEventListener('orientationchange',fitRootWidth);
 <!-- totp2-20261127 -->
 <!-- contacts-20261127 -->
 <!-- davnative-20261127 -->
+<!-- grouprename-20261128 -->
