@@ -769,6 +769,8 @@ body.batch-mode .entry-list{grid-template-columns:1fr}
       <p class="hint">只改浏览器内存里的数据，密码类字段不受影响；转完记得点「保存」（或「保存回坚果云」），才会写进文件。</p>
       <button class="btn btn-block" id="btnDeleteEtmField" type="button">删除全部模板标记字段（_etm_template_uuid）</button>
       <p class="hint">别的 KeePass 软件用模板建账号时，会在条目里写一个 _etm_template_uuid 字段，记着它是用哪个模板建的。这个字段不含密码、不影响登录，我们网页版也不用它；删了之后原来那个软件就认不出这些账号是用哪个模板建的了。只清正常分组里的条目，回收站里的不管；只改浏览器内存里的数据，删完记得点「保存」（或「保存回坚果云」），才会写进文件。</p>
+      <button class="btn btn-block" id="btnDeleteEmptyFields" type="button">删除全部空字段</button>
+      <p class="hint">别的软件导过来的条目里常带着一堆没填的空字段，编辑时看着乱。点这个按钮一次删掉全库所有空着的字段，只删空的，有值的全不动；标题、账号、密码这三个就算空着也保留。只清正常分组里的条目，回收站里的不管；只改浏览器内存里的数据，删完记得点「保存」（或「保存回坚果云」），才会写进文件。</p>
     </div>
     <div class="big-card">
       <h3>修改主密码</h3>
@@ -783,7 +785,7 @@ body.batch-mode .entry-list{grid-template-columns:1fr}
     <div class="big-card">
       <h3>关于这个库</h3>
       <p class="sub" style="margin-bottom:0">标准 KeePass .kdbx 格式，可继续用 KeePassXC（Windows）、Strongbox / KeePassium（iOS）打开。收藏会以标签形式写进库文件，换客户端也不会丢。</p>
-      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：grouprename-20261128</p>
+      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：emptyfields-20261128</p>
     </div>
   </section>
 
@@ -4144,6 +4146,47 @@ $('btnDeleteEtmField').addEventListener('click',function(){
   if(!n){ toast('没有找到模板标记字段（_etm_template_uuid），不用删'); return; }
   askConfirm('删除模板标记字段','全库有 '+n+' 个账号带 _etm_template_uuid 这个字段（别的软件用模板建账号时写进去的）。删了之后账号、密码都不受影响，我们网页版也不用它；但原来那个软件就认不出这些账号是用哪个模板建的了。确定删除吗？删完记得点保存才写进文件。','确认删除',deleteAllEtmFields);
 });
+/* 一键删除空字段：别的软件导过来的条目常带着一堆没填的空字段（模板字段全写了，
+   没填的存空值），编辑时看着乱。只删值为空（去空格后为空）的字段，有值的全不动；
+   标题、账号、密码就算空着也保留（这三个是核心字段，详情页本来就一直显示它们，
+   删了反而要重新加回来）。只清正常分组里的条目，回收站里的不管；
+   只改内存，删完要记得点保存才写进文件；删除要二次确认（先数有多少个，确认框里告诉用户，再删）。 */
+function isEmptyFieldValue(entry,name){
+  var v=fieldText(entry,name);
+  return v==null||String(v).trim()==='';
+}
+function countEmptyFields(){
+  var n=0;
+  if(!db) return n;
+  allEntries().forEach(function(w){
+    entryFieldNames(w.entry).forEach(function(k){
+      if(['Title','UserName','Password'].indexOf(k)>-1) return;
+      if(isEmptyFieldValue(w.entry,k)) n++;
+    });
+  });
+  return n;
+}
+function deleteAllEmptyFields(){
+  if(!db){ toast('请先打开一个密码库'); return; }
+  var entryCount=0, fieldCount=0;
+  allEntries().forEach(function(w){
+    var en=w.entry, removed=false;
+    entryFieldNames(en).forEach(function(k){
+      if(['Title','UserName','Password'].indexOf(k)>-1) return;
+      if(isEmptyFieldValue(en,k)){ deleteField(en,k); removed=true; fieldCount++; }
+    });
+    if(removed) entryCount++;
+  });
+  if(!fieldCount){ toast('没有找到空字段，不用删'); return; }
+  markDirty(); renderAll();
+  toast('已删除 '+entryCount+' 个账号里的 '+fieldCount+' 个空字段，记得点保存');
+}
+$('btnDeleteEmptyFields').addEventListener('click',function(){
+  if(!db){ toast('请先打开一个密码库'); return; }
+  var n=countEmptyFields();
+  if(!n){ toast('没有找到空字段，不用删'); return; }
+  askConfirm('删除空字段','全库有 '+n+' 个空着的字段（别的软件导过来时模板里带上的，没填的都存了空值）。只删空的，有值的全不动；标题、账号、密码就算空着也保留。确定删除吗？删完记得点保存才写进文件。','确认删除',deleteAllEmptyFields);
+});
 $('btnConvertPlaintext').addEventListener('click',function(){
   if(!db){ toast('请先打开一个密码库'); return; }
   askConfirm('转成明文','把全库里非密码字段（手机号、邮箱、银行卡号这些）从加密存储转成明文吗？转完在其他 KeePass 软件里能直接看到，不用一个个点“显示”。密码类字段不受影响，继续存成掩码。改完记得点保存才写进文件。','开始转换',convertAllFieldsToPlaintext);
@@ -4465,3 +4508,4 @@ window.addEventListener('orientationchange',fitRootWidth);
 <!-- contacts-20261127 -->
 <!-- davnative-20261127 -->
 <!-- grouprename-20261128 -->
+<!-- emptyfields-20261128 -->
