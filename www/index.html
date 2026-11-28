@@ -244,11 +244,31 @@ input[type=range]{width:100%;accent-color:var(--accent);min-height:36px}
 #vaultGroupsPage{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;margin-top:10px}
 #vaultEntriesPage{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;margin-top:10px}
 /* 电脑网页：密码库改左右两栏，左边分组（240px），右边条目，两页同时显示，不用进退页面；
-   手机和 App 还是两页切。body 上的 env-desktop-web 由 enterVault 按 getEnv() 挂。 */
-body.env-desktop-web .vault-split{flex-direction:row;gap:16px}
-body.env-desktop-web #vaultGroupsPage{flex:0 0 240px;width:240px}
+   手机和 App 还是两页切。body 上的 env-desktop-web 由 enterVault 按 getEnv() 挂。
+   （slimcards 那版是把分组页放 .vault-split 里做两栏；现在分组页搬进左边栏，.vault-split 里只剩条目页。） */
 body.env-desktop-web #vaultEntriesPage{flex:1;min-width:0}
 body.env-desktop-web #btnVaultBack{display:none}
+/* ---------- 电脑网页左边栏：密码库（可折叠）/ 验证器 / 底部齿轮设置 ----------
+   左边栏只在电脑上出现，手机和 App 藏起来用底部导航。
+   #vaultGroupsPage 在电脑上搬进左边栏（layoutVaultGroups 负责搬），手机上还在 .vault-split 里。 */
+.desktop-sidebar{display:none}
+.desktop-main{display:contents}
+body.env-desktop-web #vaultView{flex-direction:row}
+body.env-desktop-web #vaultView.vault-tab{height:100dvh}
+body.env-desktop-web .bottom-nav{display:none}
+body.env-desktop-web .desktop-sidebar{display:flex;flex-direction:column;flex:0 0 240px;width:240px;min-height:0;background:var(--surface);border-right:1px solid var(--line);padding:14px 10px;gap:2px}
+body.env-desktop-web .desktop-main{display:flex;flex-direction:column;flex:1;min-width:0;min-height:0}
+.side-item{display:flex;align-items:center;gap:9px;width:100%;border:1px solid transparent;background:transparent;border-radius:12px;padding:11px 12px;font-weight:600;font-size:15px;text-align:left;min-height:48px}
+.side-item .ic{font-size:18px;flex-shrink:0}
+.side-item .side-label{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side-item .side-caret{color:var(--faint);font-size:13px;flex-shrink:0}
+.side-item.active{border-color:var(--accent);color:var(--accent-strong);background:var(--accent-soft)}
+.side-spacer{flex:1}
+.side-groups{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.side-groups #vaultGroupsPage{flex:1;min-height:0;overflow-y:auto;margin-top:6px}
+/* 密码库合上时右边不显示密码条，留个空提示 */
+.vault-collapsed-hint{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--muted);text-align:center;padding:24px}
+.vault-collapsed-hint .big{font-size:38px}
 #vaultEntriesPage .entry-col{flex:1;min-height:0;position:relative;display:flex;flex-direction:column;overflow:hidden}
 #vaultEntriesPage .entry-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
 .group-row{display:flex;flex-direction:column;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:8px}
@@ -618,6 +638,15 @@ body.batch-mode .entry-list{grid-template-columns:1fr}
 
 <!-- ================= VAULT ================= -->
 <div id="vaultView" class="hidden">
+  <!-- 电脑网页左边栏：密码库（可折叠展开分组）/ 验证器 / 底部齿轮设置；手机和 App 藏起来，用底部导航 -->
+  <aside class="desktop-sidebar" id="deskSidebar" aria-label="导航">
+    <button class="side-item side-vault" id="sideVaultToggle" type="button"><span class="side-label">密码库</span><span class="side-caret" id="sideVaultCaret">▾</span></button>
+    <div class="side-groups" id="sideGroupsWrap"></div>
+    <button class="side-item" id="sideAuthBtn" type="button"><span class="ic" aria-hidden="true">🔐</span><span class="side-label">验证器</span></button>
+    <div class="side-spacer"></div>
+    <button class="side-item side-settings" id="sideSettingsBtn" type="button"><span class="ic" aria-hidden="true">⚙️</span><span class="side-label">设置</span></button>
+  </aside>
+  <div class="desktop-main" id="deskMain">
   <div class="vault-head" id="vaultHead">
     <div class="vault-title-row">
       <span class="vault-ava" aria-hidden="true">🔐</span>
@@ -686,6 +715,8 @@ body.batch-mode .entry-list{grid-template-columns:1fr}
       </div>
     </div>
     </div>
+    <!-- 电脑左边栏把密码库合上时，右边不显示密码条，留个空提示 -->
+    <div class="vault-collapsed-hint hidden" id="vaultCollapsedHint"><span class="big" aria-hidden="true">🗂️</span><span>密码库已合上，点开「密码库」选择分组查看。</span></div>
     <div class="batch-bar hidden" id="batchBar">
       <div class="field"><label for="batchNew">新值</label><input id="batchNew" placeholder="输入新值，或从下面选择常用"><select id="batchNewPick" class="field-pick"></select></div>
       <button class="btn btn-primary btn-block" id="btnBatchApply" type="button">执行批量修改</button>
@@ -793,9 +824,10 @@ body.batch-mode .entry-list{grid-template-columns:1fr}
     <div class="big-card">
       <h3>关于这个库</h3>
       <p class="sub" style="margin-bottom:0">标准 KeePass .kdbx 格式，可继续用 KeePassXC（Windows）、Strongbox / KeePassium（iOS）打开。收藏会以标签形式写进库文件，换客户端也不会丢。</p>
-      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：slimcards-20261128</p>
+      <p class="hint" id="appVersion" style="margin-top:10px">网页版本：sidebar-20261128</p>
     </div>
   </section>
+  </div>
 
   <nav class="bottom-nav" aria-label="主导航">
     <button data-tab="vault" class="active"><span class="ic" aria-hidden="true">🗂️</span>密码库</button>
@@ -1757,6 +1789,8 @@ function updateVaultHead(){
   var sr=$('searchRow'); if(sr) sr.classList.toggle('hidden', hideSearchSave);
 }
 function setBatchMode(on){
+  // 电脑上密码库合着时进批量就自动展开（批量要勾选条目），不重置当前分组
+  if(on&&document.body.classList.contains('env-desktop-web')&&deskVaultCollapsed) setDeskVaultCollapsed(false,true);
   batchMode=on; selectedBatch.clear(); batchQuery=null;
   document.body.classList.toggle('batch-mode',on);
   // 批量是单独一页：进批量时藏起首页的标题、搜索、保存、筛选和分组，只留批量自己的东西；
@@ -2922,8 +2956,10 @@ $('btnCreate').addEventListener('click',function(){
 function enterVault(name){
   $('lockedView').classList.add('hidden'); $('vaultView').classList.remove('hidden');
   $('vaultName').textContent=name; dirty=false; $('dirtyDot').style.display='none';
-  // 电脑网页密码库是左右两栏（左分组右条目），手机和 App 是两页切；进库时按环境和窗口宽挂 class
-  updateDesktopSplitClass();
+  // 电脑网页密码库是左边栏（左分组右条目），手机和 App 是两页切；进库时按环境和窗口宽挂 class，
+  // 把分组页搬到左边栏（手机上搬回 .vault-split），密码库默认展开看全部
+  updateDesktopSplitClass(); layoutVaultGroups();
+  deskVaultCollapsed=false;
   // 记下当前是哪个文件，模版/常用只用这个文件的，不用旧文件的缓存
   if(webdav&&webdav.fileUrl) currentFileId='dav:'+webdav.fileUrl;
   else if(selectedFileName) currentFileId='local:'+selectedFileName;
@@ -2945,6 +2981,7 @@ function switchTab(tab){
   /* 密码库页用应用壳布局（顶栏固定、左右两栏各自独立滚动），设置页照常整页滚动 */
   $('vaultView').classList.toggle('vault-tab', tab==='vault');
   document.querySelectorAll('.bottom-nav button').forEach(function(b){ b.classList.toggle('active',b.getAttribute('data-tab')===tab); });
+  if(typeof updateSideActive==='function') updateSideActive(); // 电脑左边栏的高亮跟着当前页走
   updateVaultHead();
   window.scrollTo(0,0);
   if(tab==='auth') renderAuth();
@@ -2958,6 +2995,15 @@ $('searchClear').addEventListener('click',function(){ $('searchInput').value='';
 $('searchScope').addEventListener('change',function(){ renderEntries(); });
 $('btnSearch').addEventListener('click',function(){ doSearch(); });
 $('btnVaultBack').addEventListener('click',function(){ goToGroups(); });
+/* 电脑左边栏：点「密码库」展开/合上（展开时切到密码库页、默认看全部）；点「验证器」/「设置」切页 */
+$('sideVaultToggle').addEventListener('click',function(){
+  // 点「密码库」：从别的页点过来就切回密码库、展开、默认看全部；
+  // 已经在密码库页了，就展开/合上切换
+  if(currentTab!=='vault'||deskVaultCollapsed){ setDeskVaultCollapsed(false); switchTab('vault'); }
+  else { setDeskVaultCollapsed(true); }
+});
+$('sideAuthBtn').addEventListener('click',function(){ switchTab('auth'); });
+$('sideSettingsBtn').addEventListener('click',function(){ switchTab('more'); });
 function doSearch(){ onSearchInput(); try{ $('entryScroll').scrollTop=0; }catch(e){} }
 
 function renderAll(){ renderGroups(); renderEntries(); updateVaultSub(); populateSearchScope(); }
@@ -2971,12 +3017,52 @@ function entriesTitleText(){
   if(currentGroupUuid){ var g=allGroups().filter(function(x){return x.uuid===currentGroupUuid})[0]; return g?g.name:'全部'; }
   return '全部';
 }
+/* ---------- 电脑网页左边栏 ----------
+   密码库默认展开（进库默认看全部）；点「密码库」合上后，左边分组和右边条目都藏起来、右边留空提示。
+   #vaultGroupsPage 在电脑上搬进左边栏、手机上还在 .vault-split 里，layoutVaultGroups 负责搬。 */
+var deskVaultCollapsed=false;
+function layoutVaultGroups(){
+  var gp=$('vaultGroupsPage'); if(!gp) return;
+  var isDesktop=document.body.classList.contains('env-desktop-web');
+  var wrap=$('sideGroupsWrap');
+  if(isDesktop){
+    if(gp.parentNode!==wrap) wrap.appendChild(gp);
+  } else {
+    var split=$('vaultSplit');
+    if(gp.parentNode!==split) split.insertBefore(gp, $('vaultEntriesPage'));
+  }
+}
+function setDeskVaultCollapsed(collapsed, keepState){
+  deskVaultCollapsed=collapsed;
+  var caret=$('sideVaultCaret'); if(caret) caret.textContent=collapsed?'▸':'▾';
+  if(!collapsed&&!keepState){
+    // 点开密码库默认看全部
+    currentGroupUuid=null; currentFilter='all'; clearSearch(); syncFilterChips();
+  }
+  showVaultPage(vaultPage||'groups');
+  renderGroups(); renderEntries();
+}
+function updateSideActive(){
+  var t=currentTab||'vault';
+  var v=$('sideVaultToggle'), a=$('sideAuthBtn'), s=$('sideSettingsBtn');
+  if(v) v.classList.toggle('active',t==='vault');
+  if(a) a.classList.toggle('active',t==='auth');
+  if(s) s.classList.toggle('active',t==='more');
+}
 function showVaultPage(page){
   vaultPage=page;
-  // 电脑网页是左右两栏，两页同时显示，不用藏起哪一页；手机和 App 还是两页切
+  // 电脑网页是左边栏+右边内容：分组在左边栏，条目在右边；合上时两边都藏，右边留空提示；
+  // 手机和 App 还是两页切
   var isDesktop=document.body.classList.contains('env-desktop-web');
-  $('vaultGroupsPage').classList.toggle('hidden',page!=='groups'&&!isDesktop);
-  $('vaultEntriesPage').classList.toggle('hidden',page!=='entries'&&!isDesktop);
+  if(isDesktop){
+    $('vaultGroupsPage').classList.toggle('hidden',deskVaultCollapsed);
+    $('vaultEntriesPage').classList.toggle('hidden',deskVaultCollapsed);
+    $('vaultSplit').classList.toggle('hidden',deskVaultCollapsed);
+    $('vaultCollapsedHint').classList.toggle('hidden',!deskVaultCollapsed);
+  } else {
+    $('vaultGroupsPage').classList.toggle('hidden',page!=='groups');
+    $('vaultEntriesPage').classList.toggle('hidden',page!=='entries');
+  }
   $('tab-vault').classList.toggle('vault-page-groups',page==='groups'&&!isDesktop);
   $('tab-vault').classList.toggle('vault-page-entries',page==='entries'||isDesktop);
 }
@@ -2998,6 +3084,8 @@ function clearSearch(){
    字清掉就回之前那页。 */
 function onSearchInput(){
   var si=$('searchInput'); if(!si) return;
+  // 电脑上密码库合着时一搜就自动展开（搜出来的条目要地方显示），但不重置搜索词
+  if(document.body.classList.contains('env-desktop-web')&&deskVaultCollapsed) setDeskVaultCollapsed(false,true);
   var q=(si.value||'').trim();
   var sc=$('searchClear'); if(sc) sc.style.display=si.value?'grid':'none';
   if(q && pageBeforeSearch===null){ pageBeforeSearch=vaultPage; showVaultPage('entries'); }
@@ -3934,7 +4022,7 @@ function updateDesktopSplitClass(){
       var had=document.body.classList.contains('env-desktop-web');
       updateDesktopSplitClass();
       var has=document.body.classList.contains('env-desktop-web');
-      if(had!==has&&typeof vaultPage!=='undefined'&&vaultPage) showVaultPage(vaultPage);
+      if(had!==has&&typeof vaultPage!=='undefined'&&vaultPage){ layoutVaultGroups(); showVaultPage(vaultPage); }
     },150);
   });
 })();
@@ -4540,3 +4628,4 @@ window.addEventListener('orientationchange',fitRootWidth);
 <!-- grouprename-20261128 -->
 <!-- emptyfields-20261128 -->
 <!-- slimcards-20261128 -->
+<!-- sidebar-20261128 -->
